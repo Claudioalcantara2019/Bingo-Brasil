@@ -16,7 +16,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
 
-  const sceneHeight = isMobile ? 245 : 360;
+  const sceneHeight = isMobile ? 205 : 360;
   const foregroundHeight = isMobile ? 135 : 378;
   const hostScale = isMobile ? 0.68 : 1;
 
@@ -94,7 +94,7 @@ export default function HomeScreen() {
             <Image
               source={require('@/assets/images/FUNDO-VILA-TROPICAL-HERO.png')}
               style={styles.hostBackground}
-              resizeMode="cover"
+              resizeMode={isMobile ? 'contain' : 'cover'}
             />
 
             {/* 2. BIANCA */}
