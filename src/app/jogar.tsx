@@ -193,6 +193,12 @@ export default function BingoGameScreen() {
   const [firstBingoUnlocked, setFirstBingoUnlocked] =
     useState(false);
 
+  const [comboChallengeCompleted, setComboChallengeCompleted] =
+    useState(false);
+
+  const [comboChallengeRewardGiven, setComboChallengeRewardGiven] =
+    useState(false);
+
   const [missionRewardGiven, setMissionRewardGiven] =
     useState(false);
 
@@ -502,6 +508,34 @@ const hitCardNumber =
     );
 
     if (
+      nextCombo >= 3 &&
+      !comboChallengeCompleted
+    ) {
+      setComboChallengeCompleted(true);
+
+      if (!comboChallengeRewardGiven) {
+        setXp((currentXp) => {
+          const updatedXp =
+            currentXp + 25;
+
+          const nextLevel =
+            Math.floor(
+              updatedXp /
+                XP_PER_LEVEL,
+            ) + 1;
+
+          setLevel(
+            nextLevel,
+          );
+
+          return updatedXp;
+        });
+
+        setComboChallengeRewardGiven(true);
+      }
+    }
+
+    if (
       autoMark &&
       cardNumbers.includes(
         nextNumber,
@@ -565,6 +599,10 @@ const hitCardNumber =
     setHitCombo(0);
 
     setBestHitCombo(0);
+
+    setComboChallengeCompleted(false);
+
+    setComboChallengeRewardGiven(false);
 
     setShowFullHistory(
       false,
@@ -1319,6 +1357,107 @@ const hitCardNumber =
             )}
           </View>
         )}
+
+        {/* DESAFIO DO COMBO */}
+        <View
+          style={[
+            styles.comboChallengeCard,
+            hitCombo >= 1 &&
+              !comboChallengeCompleted &&
+              styles.comboChallengeCardActive,
+            comboChallengeCompleted &&
+              styles.comboChallengeCardCompleted,
+          ]}
+        >
+          <View
+            style={
+              styles.comboChallengeIcon
+            }
+          >
+            <Text
+              style={
+                styles.comboChallengeIconText
+              }
+            >
+              {comboChallengeCompleted ? '✓' : '🔥'}
+            </Text>
+          </View>
+
+          <View
+            style={
+              styles.comboChallengeContent
+            }
+          >
+            <Text
+              style={
+                styles.comboChallengeLabel
+              }
+            >
+              DESAFIO DA PARTIDA
+            </Text>
+
+            <Text
+              style={
+                styles.comboChallengeTitle
+              }
+            >
+              {comboChallengeCompleted
+                ? 'COMBO x3 — DESAFIO CONCLUÍDO!'
+                : hitCombo === 0
+                  ? 'Consiga um COMBO x3'
+                  : hitCombo === 1
+                    ? 'COMBO x1 — mais 2 acertos'
+                    : 'COMBO x2 — mais 1 acerto!'}
+            </Text>
+
+            <View
+              style={
+                styles.comboChallengeTrack
+              }
+            >
+              <View
+                style={[
+                  styles.comboChallengeFill,
+                  {
+                    width: `${
+                      (Math.min(
+                        hitCombo,
+                        3,
+                      ) / 3) *
+                      100
+                    }%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          <View
+            style={
+              styles.comboChallengeReward
+            }
+          >
+            <Text
+              style={
+                styles.comboChallengeRewardValue
+              }
+            >
+              {comboChallengeCompleted
+                ? '+25 XP'
+                : 'META'}
+            </Text>
+
+            <Text
+              style={
+                styles.comboChallengeRewardLabel
+              }
+            >
+              {comboChallengeCompleted
+                ? 'RECEBIDO'
+                : `${Math.min(hitCombo, 3)}/3`}
+            </Text>
+          </View>
+        </View>
 
         {/* QUASE BINGO */}
         {almostBingo && (
@@ -2103,6 +2242,24 @@ const hitCardNumber =
               </View>
             )}
 
+            {hitCombo >= 2 &&
+              !almostBingo &&
+              !hasWon && (
+                <View
+                  style={
+                    styles.hostComboBadge
+                  }
+                >
+                  <Text
+                    style={
+                      styles.hostComboBadgeText
+                    }
+                  >
+                    🔥 COMBO x{hitCombo}
+                  </Text>
+                </View>
+              )}
+
             <Text
               style={[
                 styles.hostMessageText,
@@ -2853,6 +3010,108 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
+  comboChallengeCardActive: {
+    backgroundColor: '#103C3B',
+    borderColor: '#1BCB83',
+    borderWidth: 2,
+  },
+
+  comboChallengeCardCompleted: {
+    backgroundColor: '#0B6E58',
+    borderColor: '#1BCB83',
+    borderWidth: 2,
+  },
+
+  comboChallengeCard: {
+    minHeight: 84,
+    borderRadius: 20,
+    backgroundColor: '#0D2342',
+    borderWidth: 1,
+    borderColor: '#315176',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  comboChallengeIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#123456',
+    marginRight: 10,
+  },
+
+  comboChallengeIconText: {
+    fontSize: 19,
+    color: '#F6CA5F',
+  },
+
+  comboChallengeContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  comboChallengeLabel: {
+    color: '#7EB2D3',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  comboChallengeTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+
+  comboChallengeTrack: {
+    width: '100%',
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#183A58',
+    marginTop: 7,
+    overflow: 'hidden',
+  },
+
+  comboChallengeFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#1BCB83',
+  },
+
+  comboChallengeReward: {
+    width: 66,
+    minHeight: 50,
+    borderRadius: 12,
+    backgroundColor: '#123456',
+    borderWidth: 1,
+    borderColor: '#315176',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 9,
+    paddingHorizontal: 4,
+  },
+
+  comboChallengeRewardValue: {
+    color: '#F6CA5F',
+    fontSize: 10,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  comboChallengeRewardLabel: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    fontWeight: '900',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+
   almostBingoCard: {
     minHeight: 74,
     borderRadius: 20,
@@ -3403,6 +3662,24 @@ const styles = StyleSheet.create({
 
   toggleKnobOff: {
     alignSelf: 'flex-start',
+  },
+
+  hostComboBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 9,
+    backgroundColor: '#1BCB83',
+    borderWidth: 1,
+    borderColor: '#A9FFE0',
+  },
+
+  hostComboBadgeText: {
+    color: '#062A25',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.7,
   },
 
   hostSection: {
