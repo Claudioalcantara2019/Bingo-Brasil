@@ -1,9 +1,11 @@
 import {
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -11,6 +13,13 @@ import BiancaHost from '@/components/hosts/BiancaHost';
 import BobHost from '@/components/hosts/BobHost';
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
+
+  const sceneHeight = isMobile ? 245 : 360;
+  const foregroundHeight = isMobile ? 135 : 378;
+  const hostScale = isMobile ? 0.68 : 1;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -71,14 +80,38 @@ export default function HomeScreen() {
             torcerem com você.
           </Text>
 
-          {/* ANFITRIÕES */}
-          <View style={styles.hostsPlaceholder}>
-            <View style={styles.hostSide}>
+          {/* CENA / ANFITRIÕES */}
+          <View
+            style={[
+              styles.hostsPlaceholder,
+              {
+                height: sceneHeight,
+                minHeight: sceneHeight,
+              },
+            ]}
+          >
+            {/* 1. FUNDO */}
+            <Image
+              source={require('@/assets/images/FUNDO-VILA-TROPICAL-HERO.png')}
+              style={styles.hostBackground}
+              resizeMode="cover"
+            />
+
+            {/* 2. BIANCA */}
+            <View
+              style={[
+                styles.hostSide,
+                {
+                  transform: [{ scale: hostScale }],
+                },
+              ]}
+            >
               <BiancaHost
                 source={require('@/assets/images/BIANCA-OFICIAL.png')}
               />
             </View>
 
+            {/* CENTRO */}
             <View style={styles.hostCenter}>
               <View style={styles.hostCenterBadge}>
                 <Text style={styles.hostCenterBadgeText}>BB</Text>
@@ -91,11 +124,31 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View style={styles.hostSide}>
+            {/* 2. BOB */}
+            <View
+              style={[
+                styles.hostSide,
+                {
+                  transform: [{ scale: hostScale }],
+                },
+              ]}
+            >
               <BobHost
                 source={require('@/assets/images/BOB-OFICIAL.png')}
               />
             </View>
+
+            {/* 3. PRIMEIRO PLANO */}
+            <Image
+              source={require('@/assets/images/PRIMEIRO-PLANO-VILA-TROPICAL.png')}
+              style={[
+                styles.hostForeground,
+                {
+                  height: foregroundHeight,
+                },
+              ]}
+              resizeMode="cover"
+            />
           </View>
 
           {/* BOTÃO PRINCIPAL */}
@@ -398,9 +451,8 @@ const styles = StyleSheet.create({
   hostsPlaceholder: {
     marginTop: 22,
     marginBottom: 22,
-    minHeight: 360,
     borderRadius: 24,
-    backgroundColor: 'rgba(4, 31, 59, 0.28)',
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.16)',
     flexDirection: 'row',
@@ -408,6 +460,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 6,
     overflow: 'hidden',
+    position: 'relative',
+  },
+
+  hostBackground: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 0,
   },
 
   hostSide: {
@@ -415,6 +477,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    zIndex: 2,
   },
 
   hostCenter: {
@@ -456,6 +519,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: 'center',
     lineHeight: 14,
+  },
+
+  hostForeground: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    zIndex: 20,
   },
 
   playButton: {
