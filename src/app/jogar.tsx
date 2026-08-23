@@ -10,12 +10,16 @@ import {
 
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
+const WIN_XP = 50;
+const XP_PER_LEVEL = 100;
 
 function shuffleNumbers(numbers: number[]) {
   const shuffled = [...numbers];
 
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
+    const randomIndex = Math.floor(
+      Math.random() * (index + 1),
+    );
 
     [shuffled[index], shuffled[randomIndex]] = [
       shuffled[randomIndex],
@@ -79,7 +83,9 @@ function getNextNumber(usedNumbers: number[]) {
   const availableNumbers = Array.from(
     { length: 75 },
     (_, index) => index + 1,
-  ).filter((number) => !usedNumbers.includes(number));
+  ).filter(
+    (number) => !usedNumbers.includes(number),
+  );
 
   if (availableNumbers.length === 0) {
     return null;
@@ -118,18 +124,21 @@ function hasHorizontalBingo(
 ) {
   for (let row = 0; row < 5; row += 1) {
     const start = row * 5;
+
     const rowNumbers = cardNumbers.slice(
       start,
       start + 5,
     );
 
-    const complete = rowNumbers.every((number) => {
-      if (number === 0) {
-        return true;
-      }
+    const complete = rowNumbers.every(
+      (number) => {
+        if (number === 0) {
+          return true;
+        }
 
-      return markedNumbers.has(number);
-    });
+        return markedNumbers.has(number);
+      },
+    );
 
     if (complete) {
       return true;
@@ -140,102 +149,104 @@ function hasHorizontalBingo(
 }
 
 export default function BingoGameScreen() {
-  const [cardNumbers, setCardNumbers] = useState<number[]>(
-    () => createBingoCard(),
-  );
+  const [cardNumbers, setCardNumbers] =
+    useState<number[]>(
+      () => createBingoCard(),
+    );
 
-  const [drawnNumber, setDrawnNumber] = useState<number | null>(
-    null,
-  );
+  const [drawnNumber, setDrawnNumber] =
+    useState<number | null>(null);
 
-  const [drawnNumbers, setDrawnNumbers] = useState<number[]>(
-    [],
-  );
+  const [drawnNumbers, setDrawnNumbers] =
+    useState<number[]>([]);
 
-  const [markedNumbers, setMarkedNumbers] = useState<Set<number>>(
-    new Set(),
-  );
+  const [markedNumbers, setMarkedNumbers] =
+    useState<Set<number>>(
+      new Set(),
+    );
 
-  const [autoMark, setAutoMark] = useState(true);
+  const [autoMark, setAutoMark] =
+    useState(true);
 
-  const [hasWon, setHasWon] = useState(false);
+  const [hasWon, setHasWon] =
+    useState(false);
 
-  const [chips, setChips] = useState(INITIAL_CHIPS);
+  const [chips, setChips] =
+    useState(INITIAL_CHIPS);
 
-  const [rewardGiven, setRewardGiven] = useState(false);
+  const [xp, setXp] =
+    useState(0);
 
-  const markedCount = markedNumbers.size;
+  const [level, setLevel] =
+    useState(1);
 
-  const completeVictory = (
-    nextMarkedNumbers?: Set<number>,
+  const [rewardGiven, setRewardGiven] =
+    useState(false);
+
+  const markedCount =
+    markedNumbers.size;
+
+  const levelProgress =
+    xp % XP_PER_LEVEL;
+
+  const progressPercentage =
+    (levelProgress / XP_PER_LEVEL) * 100;
+
+  const awardVictory = (
+    nextMarkedNumbers: Set<number>,
   ) => {
+    setMarkedNumbers(nextMarkedNumbers);
     setHasWon(true);
 
-    if (nextMarkedNumbers) {
-      setMarkedNumbers(nextMarkedNumbers);
-    }
-
     if (!rewardGiven) {
-      setChips((current) => current + WIN_REWARD);
+      setChips(
+        (current) =>
+          current + WIN_REWARD,
+      );
+
+      setXp(
+        (currentXp) => {
+          const updatedXp =
+            currentXp + WIN_XP;
+
+          const nextLevel =
+            Math.floor(
+              updatedXp /
+                XP_PER_LEVEL,
+            ) + 1;
+
+          setLevel(nextLevel);
+
+          return updatedXp;
+        },
+      );
+
       setRewardGiven(true);
     }
   };
 
-  const handleNumberPress = (number: number) => {
-    if (number === 0 || hasWon) {
-      return;
-    }
-
-    setMarkedNumbers((current) => {
-      const next = new Set(current);
-
-      if (next.has(number)) {
-        next.delete(number);
-      } else {
-        next.add(number);
-      }
-
-      if (hasHorizontalBingo(cardNumbers, next)) {
-        setHasWon(true);
-
-        if (!rewardGiven) {
-          setChips((currentChips) => (
-            currentChips + WIN_REWARD
-          ));
-          setRewardGiven(true);
-        }
-      }
-
-      return next;
-    });
-  };
-
-  const handleNextNumber = () => {
-    if (hasWon) {
-      return;
-    }
-
-    const nextNumber = getNextNumber(drawnNumbers);
-
-    if (nextNumber === null) {
-      return;
-    }
-
-    setDrawnNumber(nextNumber);
-
-    setDrawnNumbers((current) => [
-      ...current,
-      nextNumber,
-    ]);
-
+  const handleNumberPress = (
+    number: number,
+  ) => {
     if (
-      autoMark &&
-      cardNumbers.includes(nextNumber)
+      number === 0 ||
+      hasWon
     ) {
-      setMarkedNumbers((current) => {
-        const next = new Set(current);
+      return;
+    }
 
-        next.add(nextNumber);
+    setMarkedNumbers(
+      (current) => {
+        const next =
+          new Set(current);
+
+        if (
+          next.has(number)
+        ) {
+          next.delete(number);
+        } else {
+          next.add(number);
+        }
 
         if (
           hasHorizontalBingo(
@@ -243,18 +254,64 @@ export default function BingoGameScreen() {
             next,
           )
         ) {
-          setHasWon(true);
-
-          if (!rewardGiven) {
-            setChips((currentChips) => (
-              currentChips + WIN_REWARD
-            ));
-            setRewardGiven(true);
-          }
+          awardVictory(next);
         }
 
         return next;
-      });
+      },
+    );
+  };
+
+  const handleNextNumber = () => {
+    if (hasWon) {
+      return;
+    }
+
+    const nextNumber =
+      getNextNumber(
+        drawnNumbers,
+      );
+
+    if (nextNumber === null) {
+      return;
+    }
+
+    setDrawnNumber(
+      nextNumber,
+    );
+
+    setDrawnNumbers(
+      (current) => [
+        ...current,
+        nextNumber,
+      ],
+    );
+
+    if (
+      autoMark &&
+      cardNumbers.includes(
+        nextNumber,
+      )
+    ) {
+      setMarkedNumbers(
+        (current) => {
+          const next =
+            new Set(current);
+
+          next.add(nextNumber);
+
+          if (
+            hasHorizontalBingo(
+              cardNumbers,
+              next,
+            )
+          ) {
+            awardVictory(next);
+          }
+
+          return next;
+        },
+      );
     }
   };
 
@@ -263,45 +320,66 @@ export default function BingoGameScreen() {
       return;
     }
 
-    setAutoMark((current) => !current);
+    setAutoMark(
+      (current) => !current,
+    );
   };
 
   const handlePlayAgain = () => {
-    setCardNumbers(createBingoCard());
+    setCardNumbers(
+      createBingoCard(),
+    );
+
     setDrawnNumber(null);
     setDrawnNumbers([]);
-    setMarkedNumbers(new Set());
+    setMarkedNumbers(
+      new Set(),
+    );
+
     setAutoMark(true);
     setHasWon(false);
     setRewardGiven(false);
   };
 
-  const isFinished = drawnNumbers.length >= 75;
+  const isFinished =
+    drawnNumbers.length >= 75;
 
-  const currentLetter = drawnNumber
-    ? getBingoLetter(drawnNumber)
-    : '—';
+  const currentLetter =
+    drawnNumber
+      ? getBingoLetter(
+          drawnNumber,
+        )
+      : '—';
 
   let drawMessage =
     'Toque em PRÓXIMO NÚMERO para começar';
 
   if (hasWon) {
-    drawMessage = 'Você completou uma linha!';
+    drawMessage =
+      'Você completou uma linha!';
   } else if (isFinished) {
     drawMessage =
       'Todos os números foram sorteados!';
-  } else if (drawnNumber !== null) {
+  } else if (
+    drawnNumber !== null
+  ) {
     const isNumberMarked =
-      markedNumbers.has(drawnNumber);
+      markedNumbers.has(
+        drawnNumber,
+      );
 
     if (isNumberMarked) {
-      drawMessage = 'Número marcado!';
+      drawMessage =
+        'Número marcado!';
     } else if (
-      cardNumbers.includes(drawnNumber)
+      cardNumbers.includes(
+        drawnNumber,
+      )
     ) {
-      drawMessage = autoMark
-        ? 'Número encontrado na sua cartela!'
-        : 'Toque no número para marcar';
+      drawMessage =
+        autoMark
+          ? 'Número encontrado na sua cartela!'
+          : 'Toque no número para marcar';
     } else {
       drawMessage =
         'Boa! Vamos para o próximo.';
@@ -309,65 +387,236 @@ export default function BingoGameScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={
+        styles.safeArea
+      }
+    >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          styles.scrollContent
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
         {/* TOPO */}
-        <View style={styles.topBar}>
-          <Pressable style={styles.backButton}>
-            <Text style={styles.backButtonText}>‹</Text>
+        <View
+          style={styles.topBar}
+        >
+          <Pressable
+            style={
+              styles.backButton
+            }
+          >
+            <Text
+              style={
+                styles.backButtonText
+              }
+            >
+              ‹
+            </Text>
           </Pressable>
 
-          <View style={styles.topCenter}>
-            <Text style={styles.topTitle}>
+          <View
+            style={
+              styles.topCenter
+            }
+          >
+            <Text
+              style={
+                styles.topTitle
+              }
+            >
               VILA TROPICAL
             </Text>
 
-            <Text style={styles.topSubtitle}>
+            <Text
+              style={
+                styles.topSubtitle
+              }
+            >
               PARTIDA
             </Text>
           </View>
 
-          <View style={styles.chipBadge}>
-            <Text style={styles.chipIcon}>●</Text>
+          <View
+            style={
+              styles.chipBadge
+            }
+          >
+            <Text
+              style={
+                styles.chipIcon
+              }
+            >
+              ●
+            </Text>
 
-            <Text style={styles.chipValue}>
-              {chips.toLocaleString('pt-BR')}
+            <Text
+              style={
+                styles.chipValue
+              }
+            >
+              {chips.toLocaleString(
+                'pt-BR',
+              )}
+            </Text>
+          </View>
+        </View>
+
+        {/* PROGRESSO */}
+        <View
+          style={
+            styles.progressCard
+          }
+        >
+          <View
+            style={
+              styles.progressTop
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.progressLabel
+                }
+              >
+                SEU PROGRESSO
+              </Text>
+
+              <Text
+                style={
+                  styles.levelTitle
+                }
+              >
+                NÍVEL {level}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.xpBadge
+              }
+            >
+              <Text
+                style={
+                  styles.xpBadgeText
+                }
+              >
+                {levelProgress} / 100 XP
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={
+              styles.xpTrack
+            }
+          >
+            <View
+              style={[
+                styles.xpFill,
+                {
+                  width: `${progressPercentage}%`,
+                },
+              ]}
+            />
+          </View>
+
+          <View
+            style={
+              styles.xpBottom
+            }
+          >
+            <Text
+              style={
+                styles.xpCurrent
+              }
+            >
+              XP ATUAL: {xp}
+            </Text>
+
+            <Text
+              style={
+                styles.progressHint
+              }
+            >
+              Mais {XP_PER_LEVEL - levelProgress} XP
+              para o próximo nível
             </Text>
           </View>
         </View>
 
         {/* STATUS */}
-        <View style={styles.statusRow}>
-          <View style={styles.statusCard}>
-            <Text style={styles.statusLabel}>
+        <View
+          style={
+            styles.statusRow
+          }
+        >
+          <View
+            style={
+              styles.statusCard
+            }
+          >
+            <Text
+              style={
+                styles.statusLabel
+              }
+            >
               PARTIDA
             </Text>
 
-            <Text style={styles.statusValue}>
+            <Text
+              style={
+                styles.statusValue
+              }
+            >
               #001
             </Text>
           </View>
 
-          <View style={styles.statusCard}>
-            <Text style={styles.statusLabel}>
+          <View
+            style={
+              styles.statusCard
+            }
+          >
+            <Text
+              style={
+                styles.statusLabel
+              }
+            >
               SORTEADOS
             </Text>
 
-            <Text style={styles.statusValue}>
+            <Text
+              style={
+                styles.statusValue
+              }
+            >
               {drawnNumbers.length}
             </Text>
           </View>
 
-          <View style={styles.statusCard}>
-            <Text style={styles.statusLabel}>
+          <View
+            style={
+              styles.statusCard
+            }
+          >
+            <Text
+              style={
+                styles.statusLabel
+              }
+            >
               NÍVEL
             </Text>
 
-            <Text style={styles.statusValue}>
-              1
+            <Text
+              style={
+                styles.statusValue
+              }
+            >
+              {level}
             </Text>
           </View>
         </View>
@@ -376,29 +625,44 @@ export default function BingoGameScreen() {
         <View
           style={[
             styles.drawSection,
-            hasWon && styles.drawSectionWon,
+            hasWon &&
+              styles.drawSectionWon,
           ]}
         >
-          <Text style={styles.drawLabel}>
+          <Text
+            style={
+              styles.drawLabel
+            }
+          >
             {hasWon
               ? 'RESULTADO DA PARTIDA'
               : 'ÚLTIMO NÚMERO'}
           </Text>
 
-          <View style={styles.ballRow}>
+          <View
+            style={
+              styles.ballRow
+            }
+          >
             <View
               style={[
                 styles.bingoBall,
-                hasWon && styles.bingoBallWon,
+                hasWon &&
+                  styles.bingoBallWon,
               ]}
             >
               <View
                 style={[
                   styles.ballInner,
-                  hasWon && styles.ballInnerWon,
+                  hasWon &&
+                    styles.ballInnerWon,
                 ]}
               >
-                <Text style={styles.ballLetter}>
+                <Text
+                  style={
+                    styles.ballLetter
+                  }
+                >
                   {hasWon
                     ? '★'
                     : currentLetter}
@@ -413,7 +677,8 @@ export default function BingoGameScreen() {
                 >
                   {hasWon
                     ? 'BINGO!'
-                    : drawnNumber ?? '—'}
+                    : drawnNumber ??
+                      '—'}
                 </Text>
               </View>
             </View>
@@ -432,70 +697,173 @@ export default function BingoGameScreen() {
 
         {/* CELEBRAÇÃO */}
         {hasWon && (
-          <View style={styles.victoryCard}>
-            <View style={styles.confettiRow}>
-              <Text style={styles.confetti}>
+          <View
+            style={
+              styles.victoryCard
+            }
+          >
+            <View
+              style={
+                styles.confettiRow
+              }
+            >
+              <Text
+                style={
+                  styles.confetti
+                }
+              >
                 ✦
               </Text>
 
-              <Text style={styles.confetti}>
+              <Text
+                style={
+                  styles.confetti
+                }
+              >
                 ★
               </Text>
 
-              <Text style={styles.confetti}>
+              <Text
+                style={
+                  styles.confetti
+                }
+              >
                 ✦
               </Text>
 
-              <Text style={styles.confetti}>
+              <Text
+                style={
+                  styles.confetti
+                }
+              >
                 ★
               </Text>
 
-              <Text style={styles.confetti}>
+              <Text
+                style={
+                  styles.confetti
+                }
+              >
                 ✦
               </Text>
             </View>
 
-            <Text style={styles.victoryTitle}>
+            <Text
+              style={
+                styles.victoryTitle
+              }
+            >
               BINGO!
             </Text>
 
-            <Text style={styles.victorySubtitle}>
+            <Text
+              style={
+                styles.victorySubtitle
+              }
+            >
               Você completou uma linha!
             </Text>
 
-            <View style={styles.rewardCard}>
-              <View style={styles.rewardIcon}>
-                <Text style={styles.rewardIconText}>
+            <View
+              style={
+                styles.rewardCard
+              }
+            >
+              <View
+                style={
+                  styles.rewardIcon
+                }
+              >
+                <Text
+                  style={
+                    styles.rewardIconText
+                  }
+                >
                   +
                 </Text>
               </View>
 
-              <View style={styles.rewardContent}>
-                <Text style={styles.rewardLabel}>
+              <View
+                style={
+                  styles.rewardContent
+                }
+              >
+                <Text
+                  style={
+                    styles.rewardLabel
+                  }
+                >
                   RECOMPENSA
                 </Text>
 
-                <Text style={styles.rewardValue}>
+                <Text
+                  style={
+                    styles.rewardValue
+                  }
+                >
                   +{WIN_REWARD} fichas
                 </Text>
               </View>
             </View>
 
-            <Text style={styles.victoryMessage}>
-              Bianca e Bob estão comemorando com você!
+            <View
+              style={
+                styles.xpReward
+              }
+            >
+              <Text
+                style={
+                  styles.xpRewardText
+                }
+              >
+                +{WIN_XP} XP
+              </Text>
+
+              <Text
+                style={
+                  styles.xpRewardHint
+                }
+              >
+                Progresso salvo
+              </Text>
+            </View>
+
+            <Text
+              style={
+                styles.victoryMessage
+              }
+            >
+              Bianca e Bob estão
+              comemorando com você!
             </Text>
           </View>
         )}
 
         {/* CARTELA */}
-        <View style={styles.cardSection}>
-          <View style={styles.cardHeader}>
+        <View
+          style={
+            styles.cardSection
+          }
+        >
+          <View
+            style={
+              styles.cardHeader
+            }
+          >
             <View>
-              <Text style={styles.cardTitle}>
+              <Text
+                style={
+                  styles.cardTitle
+                }
+              >
                 SUA CARTELA
               </Text>
 
-              <Text style={styles.cardSubtitle}>
+              <Text
+                style={
+                  styles.cardSubtitle
+                }
+              >
                 {hasWon
                   ? 'Linha vencedora destacada'
                   : 'Toque em um número para marcar'}
@@ -509,7 +877,11 @@ export default function BingoGameScreen() {
                   styles.progressBadgeWon,
               ]}
             >
-              <Text style={styles.progressText}>
+              <Text
+                style={
+                  styles.progressText
+                }
+              >
                 {markedCount} / 24
               </Text>
             </View>
@@ -522,13 +894,24 @@ export default function BingoGameScreen() {
                 styles.cardBoardWon,
             ]}
           >
-            {/* CABEÇALHO */}
-            <View style={styles.columnHeaderRow}>
-              {['B', 'I', 'N', 'G', 'O'].map(
+            <View
+              style={
+                styles.columnHeaderRow
+              }
+            >
+              {[
+                'B',
+                'I',
+                'N',
+                'G',
+                'O',
+              ].map(
                 (letter) => (
                   <View
                     key={letter}
-                    style={styles.columnHeader}
+                    style={
+                      styles.columnHeader
+                    }
                   >
                     <Text
                       style={
@@ -542,19 +925,29 @@ export default function BingoGameScreen() {
               )}
             </View>
 
-            {/* CARTELA */}
-            <View style={styles.numberGrid}>
+            <View
+              style={
+                styles.numberGrid
+              }
+            >
               {cardNumbers.map(
-                (number, index) => {
+                (
+                  number,
+                  index,
+                ) => {
                   const isFree =
                     number === 0;
 
                   const isMarked =
                     isFree ||
-                    markedNumbers.has(number);
+                    markedNumbers.has(
+                      number,
+                    );
 
                   const row =
-                    Math.floor(index / 5);
+                    Math.floor(
+                      index / 5,
+                    );
 
                   const rowNumbers =
                     cardNumbers.slice(
@@ -567,7 +960,8 @@ export default function BingoGameScreen() {
                     rowNumbers.every(
                       (rowNumber) => {
                         if (
-                          rowNumber === 0
+                          rowNumber ===
+                          0
                         ) {
                           return true;
                         }
@@ -581,11 +975,14 @@ export default function BingoGameScreen() {
                   return (
                     <View
                       key={`${number}-${index}`}
-                      style={styles.numberCell}
+                      style={
+                        styles.numberCell
+                      }
                     >
                       <Pressable
                         disabled={
-                          isFree || hasWon
+                          isFree ||
+                          hasWon
                         }
                         onPress={() =>
                           handleNumberPress(
@@ -650,7 +1047,11 @@ export default function BingoGameScreen() {
         </View>
 
         {/* MARCAÇÃO AUTOMÁTICA */}
-        <View style={styles.controls}>
+        <View
+          style={
+            styles.controls
+          }
+        >
           <Pressable
             disabled={hasWon}
             style={({ pressed }) => [
@@ -661,7 +1062,9 @@ export default function BingoGameScreen() {
                 !hasWon &&
                 styles.pressed,
             ]}
-            onPress={toggleAutoMark}
+            onPress={
+              toggleAutoMark
+            }
           >
             <View
               style={[
@@ -670,17 +1073,35 @@ export default function BingoGameScreen() {
                   styles.autoIconActive,
               ]}
             >
-              <Text style={styles.autoIconText}>
-                {autoMark ? '✓' : '−'}
+              <Text
+                style={
+                  styles.autoIconText
+                }
+              >
+                {autoMark
+                  ? '✓'
+                  : '−'}
               </Text>
             </View>
 
-            <View style={styles.autoContent}>
-              <Text style={styles.autoTitle}>
+            <View
+              style={
+                styles.autoContent
+              }
+            >
+              <Text
+                style={
+                  styles.autoTitle
+                }
+              >
                 MARCAÇÃO AUTOMÁTICA
               </Text>
 
-              <Text style={styles.autoSubtitle}>
+              <Text
+                style={
+                  styles.autoSubtitle
+                }
+              >
                 {hasWon
                   ? 'Partida encerrada'
                   : autoMark
@@ -727,13 +1148,19 @@ export default function BingoGameScreen() {
             ]}
           >
             <Text
-              style={styles.hostBubbleText}
+              style={
+                styles.hostBubbleText
+              }
             >
               B
             </Text>
           </View>
 
-          <View style={styles.hostMessage}>
+          <View
+            style={
+              styles.hostMessage
+            }
+          >
             <Text
               style={[
                 styles.hostName,
@@ -745,7 +1172,9 @@ export default function BingoGameScreen() {
             </Text>
 
             <Text
-              style={styles.hostMessageText}
+              style={
+                styles.hostMessageText
+              }
             >
               {hasWon
                 ? 'BINGO! Eu sabia que você conseguiria!'
@@ -773,7 +1202,9 @@ export default function BingoGameScreen() {
             ]}
           >
             <Text
-              style={styles.hostBubbleText}
+              style={
+                styles.hostBubbleText
+              }
             >
               B
             </Text>
@@ -783,25 +1214,39 @@ export default function BingoGameScreen() {
         {/* AÇÃO */}
         {hasWon ? (
           <Pressable
-            onPress={handlePlayAgain}
+            onPress={
+              handlePlayAgain
+            }
             style={({ pressed }) => [
               styles.playAgainButton,
               pressed &&
                 styles.pressed,
             ]}
           >
-            <Text style={styles.playAgainText}>
+            <Text
+              style={
+                styles.playAgainText
+              }
+            >
               JOGAR NOVAMENTE
             </Text>
 
-            <Text style={styles.nextButtonArrow}>
+            <Text
+              style={
+                styles.nextButtonArrow
+              }
+            >
               ›
             </Text>
           </Pressable>
         ) : (
           <Pressable
-            disabled={isFinished}
-            onPress={handleNextNumber}
+            disabled={
+              isFinished
+            }
+            onPress={
+              handleNextNumber
+            }
             style={({ pressed }) => [
               styles.nextButton,
               isFinished &&
@@ -811,7 +1256,11 @@ export default function BingoGameScreen() {
                 styles.pressed,
             ]}
           >
-            <Text style={styles.nextButtonText}>
+            <Text
+              style={
+                styles.nextButtonText
+              }
+            >
               {isFinished
                 ? 'SORTEIO ENCERRADO'
                 : 'PRÓXIMO NÚMERO'}
@@ -819,7 +1268,9 @@ export default function BingoGameScreen() {
 
             {!isFinished && (
               <Text
-                style={styles.nextButtonArrow}
+                style={
+                  styles.nextButtonArrow
+                }
               >
                 ›
               </Text>
@@ -827,9 +1278,13 @@ export default function BingoGameScreen() {
           </Pressable>
         )}
 
-        <Text style={styles.footerHint}>
+        <Text
+          style={
+            styles.footerHint
+          }
+        >
           {hasWon
-            ? 'Sua primeira vitória no Bingo Brasil!'
+            ? 'Sua jornada continua no Bingo Brasil!'
             : `${drawnNumbers.length} de 75 números sorteados`}
         </Text>
       </ScrollView>
@@ -916,6 +1371,87 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '900',
+  },
+
+  progressCard: {
+    borderRadius: 22,
+    backgroundColor: '#0A5C75',
+    borderWidth: 2,
+    borderColor: '#56D6D1',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 18,
+  },
+
+  progressTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  progressLabel: {
+    color: '#B9F0EC',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+
+  levelTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+
+  xpBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: '#082F3B',
+    borderWidth: 1,
+    borderColor: '#56D6D1',
+  },
+
+  xpBadgeText: {
+    color: '#F6CA5F',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  xpTrack: {
+    width: '100%',
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#083E50',
+    marginTop: 12,
+    overflow: 'hidden',
+  },
+
+  xpFill: {
+    height: '100%',
+    borderRadius: 5,
+    backgroundColor: '#F6CA5F',
+  },
+
+  xpBottom: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  xpCurrent: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  progressHint: {
+    color: '#B9F0EC',
+    fontSize: 8,
+    textAlign: 'right',
+    flexShrink: 1,
+    marginLeft: 10,
   },
 
   statusRow: {
@@ -1120,6 +1656,30 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
+  xpReward: {
+    width: '100%',
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: '#123456',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  xpRewardText: {
+    color: '#F6CA5F',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  xpRewardHint: {
+    color: '#82AAA9',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+
   victoryMessage: {
     color: '#D4FFF1',
     fontSize: 11,
@@ -1228,7 +1788,11 @@ const styles = StyleSheet.create({
 
   numberPressed: {
     opacity: 0.72,
-    transform: [{ scale: 0.96 }],
+    transform: [
+      {
+        scale: 0.96,
+      },
+    ],
   },
 
   numberText: {
@@ -1475,6 +2039,10 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.82,
-    transform: [{ scale: 0.98 }],
+    transform: [
+      {
+        scale: 0.98,
+      },
+    ],
   },
 });
