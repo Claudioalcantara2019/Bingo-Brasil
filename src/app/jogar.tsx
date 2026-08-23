@@ -190,6 +190,9 @@ export default function BingoGameScreen() {
   const [bingosCompleted, setBingosCompleted] =
     useState(0);
 
+  const [firstBingoUnlocked, setFirstBingoUnlocked] =
+    useState(false);
+
   const [missionRewardGiven, setMissionRewardGiven] =
     useState(false);
 
@@ -386,6 +389,8 @@ const hitCardNumber =
         (current) =>
           current + 1,
       );
+
+      setFirstBingoUnlocked(true);
 
       setVillageBingos(
         (current) =>
@@ -1535,6 +1540,60 @@ const hitCardNumber =
               Bianca e Bob estão
               comemorando com você!
             </Text>
+
+            {firstBingoUnlocked && bingosCompleted === 1 && (
+              <View
+                style={
+                  styles.firstBingoCard
+                }
+              >
+                <Text
+                  style={
+                    styles.firstBingoIcon
+                  }
+                >
+                  🏆
+                </Text>
+
+                <View
+                  style={
+                    styles.firstBingoContent
+                  }
+                >
+                  <Text
+                    style={
+                      styles.firstBingoTitle
+                    }
+                  >
+                    PRIMEIRO BINGO!
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.firstBingoText
+                    }
+                  >
+                    Você acaba de completar sua primeira vitória.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {firstBingoUnlocked && bingosCompleted > 1 && (
+              <View
+                style={
+                  styles.firstBingoCompact
+                }
+              >
+                <Text
+                  style={
+                    styles.firstBingoCompactText
+                  }
+                >
+                  🏆 PRIMEIRO BINGO CONQUISTADO
+                </Text>
+              </View>
+            )}
 
             <View
               style={
@@ -2984,6 +3043,62 @@ const styles = StyleSheet.create({
     color: '#D4FFF1',
     fontSize: 11,
     marginTop: 12,
+    textAlign: 'center',
+  },
+
+  firstBingoCard: {
+    width: '100%',
+    marginTop: 12,
+    borderRadius: 18,
+    backgroundColor: '#4A3A10',
+    borderWidth: 2,
+    borderColor: '#F6CA5F',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  firstBingoIcon: {
+    fontSize: 27,
+    marginRight: 10,
+  },
+
+  firstBingoContent: {
+    flex: 1,
+  },
+
+  firstBingoTitle: {
+    color: '#F6CA5F',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+
+  firstBingoText: {
+    color: '#FFF0B5',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 3,
+  },
+
+  firstBingoCompact: {
+    width: '100%',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: '#123456',
+    borderWidth: 1,
+    borderColor: '#315176',
+    alignItems: 'center',
+  },
+
+  firstBingoCompactText: {
+    color: '#F6CA5F',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
     textAlign: 'center',
   },
 
