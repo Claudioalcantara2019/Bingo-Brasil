@@ -8,16 +8,72 @@ import {
     View,
 } from 'react-native';
 
-const CARD_NUMBERS = [
-  7, 18, 34, 49, 63,
-  2, 21, 38, 52, 70,
-  11, 26, 0, 57, 68,
-  5, 24, 41, 55, 73,
-  14, 29, 45, 60, 75,
-];
-
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
+
+function shuffleNumbers(numbers: number[]) {
+  const shuffled = [...numbers];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+
+    [shuffled[index], shuffled[randomIndex]] = [
+      shuffled[randomIndex],
+      shuffled[index],
+    ];
+  }
+
+  return shuffled;
+}
+
+function createColumnNumbers(min: number, max: number) {
+  const numbers = Array.from(
+    { length: max - min + 1 },
+    (_, index) => min + index,
+  );
+
+  return shuffleNumbers(numbers).slice(0, 5);
+}
+
+function createBingoCard() {
+  const bColumn = createColumnNumbers(1, 15);
+  const iColumn = createColumnNumbers(16, 30);
+  const nColumn = createColumnNumbers(31, 45);
+  const gColumn = createColumnNumbers(46, 60);
+  const oColumn = createColumnNumbers(61, 75);
+
+  return [
+    bColumn[0],
+    iColumn[0],
+    nColumn[0],
+    gColumn[0],
+    oColumn[0],
+
+    bColumn[1],
+    iColumn[1],
+    nColumn[1],
+    gColumn[1],
+    oColumn[1],
+
+    bColumn[2],
+    iColumn[2],
+    0,
+    gColumn[2],
+    oColumn[2],
+
+    bColumn[3],
+    iColumn[3],
+    nColumn[3],
+    gColumn[3],
+    oColumn[3],
+
+    bColumn[4],
+    iColumn[4],
+    nColumn[4],
+    gColumn[4],
+    oColumn[4],
+  ];
+}
 
 function getNextNumber(usedNumbers: number[]) {
   const availableNumbers = Array.from(
@@ -56,10 +112,16 @@ function getBingoLetter(number: number) {
   return 'O';
 }
 
-function hasHorizontalBingo(markedNumbers: Set<number>) {
+function hasHorizontalBingo(
+  cardNumbers: number[],
+  markedNumbers: Set<number>,
+) {
   for (let row = 0; row < 5; row += 1) {
     const start = row * 5;
-    const rowNumbers = CARD_NUMBERS.slice(start, start + 5);
+    const rowNumbers = cardNumbers.slice(
+      start,
+      start + 5,
+    );
 
     const complete = rowNumbers.every((number) => {
       if (number === 0) {
@@ -78,6 +140,10 @@ function hasHorizontalBingo(markedNumbers: Set<number>) {
 }
 
 export default function BingoGameScreen() {
+  const [cardNumbers, setCardNumbers] = useState<number[]>(
+    () => createBingoCard(),
+  );
+
   const [drawnNumber, setDrawnNumber] = useState<number | null>(
     null,
   );
@@ -100,8 +166,14 @@ export default function BingoGameScreen() {
 
   const markedCount = markedNumbers.size;
 
-  const completeVictory = () => {
+  const completeVictory = (
+    nextMarkedNumbers?: Set<number>,
+  ) => {
     setHasWon(true);
+
+    if (nextMarkedNumbers) {
+      setMarkedNumbers(nextMarkedNumbers);
+    }
 
     if (!rewardGiven) {
       setChips((current) => current + WIN_REWARD);
@@ -123,8 +195,15 @@ export default function BingoGameScreen() {
         next.add(number);
       }
 
-      if (hasHorizontalBingo(next)) {
-        completeVictory();
+      if (hasHorizontalBingo(cardNumbers, next)) {
+        setHasWon(true);
+
+        if (!rewardGiven) {
+          setChips((currentChips) => (
+            currentChips + WIN_REWARD
+          ));
+          setRewardGiven(true);
+        }
       }
 
       return next;
@@ -151,14 +230,27 @@ export default function BingoGameScreen() {
 
     if (
       autoMark &&
-      CARD_NUMBERS.includes(nextNumber)
+      cardNumbers.includes(nextNumber)
     ) {
       setMarkedNumbers((current) => {
         const next = new Set(current);
+
         next.add(nextNumber);
 
-        if (hasHorizontalBingo(next)) {
-          completeVictory();
+        if (
+          hasHorizontalBingo(
+            cardNumbers,
+            next,
+          )
+        ) {
+          setHasWon(true);
+
+          if (!rewardGiven) {
+            setChips((currentChips) => (
+              currentChips + WIN_REWARD
+            ));
+            setRewardGiven(true);
+          }
         }
 
         return next;
@@ -175,13 +267,13 @@ export default function BingoGameScreen() {
   };
 
   const handlePlayAgain = () => {
+    setCardNumbers(createBingoCard());
     setDrawnNumber(null);
     setDrawnNumbers([]);
     setMarkedNumbers(new Set());
     setAutoMark(true);
     setHasWon(false);
     setRewardGiven(false);
-    setChips((current) => current);
   };
 
   const isFinished = drawnNumbers.length >= 75;
@@ -190,23 +282,29 @@ export default function BingoGameScreen() {
     ? getBingoLetter(drawnNumber)
     : '—';
 
-  let drawMessage = 'Toque em PRÓXIMO NÚMERO para começar';
+  let drawMessage =
+    'Toque em PRÓXIMO NÚMERO para começar';
 
   if (hasWon) {
     drawMessage = 'Você completou uma linha!';
   } else if (isFinished) {
-    drawMessage = 'Todos os números foram sorteados!';
+    drawMessage =
+      'Todos os números foram sorteados!';
   } else if (drawnNumber !== null) {
-    const isNumberMarked = markedNumbers.has(drawnNumber);
+    const isNumberMarked =
+      markedNumbers.has(drawnNumber);
 
     if (isNumberMarked) {
       drawMessage = 'Número marcado!';
-    } else if (CARD_NUMBERS.includes(drawnNumber)) {
+    } else if (
+      cardNumbers.includes(drawnNumber)
+    ) {
       drawMessage = autoMark
         ? 'Número encontrado na sua cartela!'
         : 'Toque no número para marcar';
     } else {
-      drawMessage = 'Boa! Vamos para o próximo.';
+      drawMessage =
+        'Boa! Vamos para o próximo.';
     }
   }
 
@@ -223,12 +321,18 @@ export default function BingoGameScreen() {
           </Pressable>
 
           <View style={styles.topCenter}>
-            <Text style={styles.topTitle}>VILA TROPICAL</Text>
-            <Text style={styles.topSubtitle}>PARTIDA</Text>
+            <Text style={styles.topTitle}>
+              VILA TROPICAL
+            </Text>
+
+            <Text style={styles.topSubtitle}>
+              PARTIDA
+            </Text>
           </View>
 
           <View style={styles.chipBadge}>
             <Text style={styles.chipIcon}>●</Text>
+
             <Text style={styles.chipValue}>
               {chips.toLocaleString('pt-BR')}
             </Text>
@@ -238,20 +342,33 @@ export default function BingoGameScreen() {
         {/* STATUS */}
         <View style={styles.statusRow}>
           <View style={styles.statusCard}>
-            <Text style={styles.statusLabel}>PARTIDA</Text>
-            <Text style={styles.statusValue}>#001</Text>
+            <Text style={styles.statusLabel}>
+              PARTIDA
+            </Text>
+
+            <Text style={styles.statusValue}>
+              #001
+            </Text>
           </View>
 
           <View style={styles.statusCard}>
-            <Text style={styles.statusLabel}>SORTEADOS</Text>
+            <Text style={styles.statusLabel}>
+              SORTEADOS
+            </Text>
+
             <Text style={styles.statusValue}>
               {drawnNumbers.length}
             </Text>
           </View>
 
           <View style={styles.statusCard}>
-            <Text style={styles.statusLabel}>NÍVEL</Text>
-            <Text style={styles.statusValue}>1</Text>
+            <Text style={styles.statusLabel}>
+              NÍVEL
+            </Text>
+
+            <Text style={styles.statusValue}>
+              1
+            </Text>
           </View>
         </View>
 
@@ -263,7 +380,9 @@ export default function BingoGameScreen() {
           ]}
         >
           <Text style={styles.drawLabel}>
-            {hasWon ? 'RESULTADO DA PARTIDA' : 'ÚLTIMO NÚMERO'}
+            {hasWon
+              ? 'RESULTADO DA PARTIDA'
+              : 'ÚLTIMO NÚMERO'}
           </Text>
 
           <View style={styles.ballRow}>
@@ -288,7 +407,8 @@ export default function BingoGameScreen() {
                 <Text
                   style={[
                     styles.ballNumber,
-                    hasWon && styles.ballNumberWon,
+                    hasWon &&
+                      styles.ballNumberWon,
                   ]}
                 >
                   {hasWon
@@ -302,7 +422,8 @@ export default function BingoGameScreen() {
           <Text
             style={[
               styles.drawMessage,
-              hasWon && styles.drawMessageWon,
+              hasWon &&
+                styles.drawMessageWon,
             ]}
           >
             {drawMessage}
@@ -313,11 +434,25 @@ export default function BingoGameScreen() {
         {hasWon && (
           <View style={styles.victoryCard}>
             <View style={styles.confettiRow}>
-              <Text style={styles.confetti}>✦</Text>
-              <Text style={styles.confetti}>★</Text>
-              <Text style={styles.confetti}>✦</Text>
-              <Text style={styles.confetti}>★</Text>
-              <Text style={styles.confetti}>✦</Text>
+              <Text style={styles.confetti}>
+                ✦
+              </Text>
+
+              <Text style={styles.confetti}>
+                ★
+              </Text>
+
+              <Text style={styles.confetti}>
+                ✦
+              </Text>
+
+              <Text style={styles.confetti}>
+                ★
+              </Text>
+
+              <Text style={styles.confetti}>
+                ✦
+              </Text>
             </View>
 
             <Text style={styles.victoryTitle}>
@@ -330,7 +465,9 @@ export default function BingoGameScreen() {
 
             <View style={styles.rewardCard}>
               <View style={styles.rewardIcon}>
-                <Text style={styles.rewardIconText}>+</Text>
+                <Text style={styles.rewardIconText}>
+                  +
+                </Text>
               </View>
 
               <View style={styles.rewardContent}>
@@ -368,7 +505,8 @@ export default function BingoGameScreen() {
             <View
               style={[
                 styles.progressBadge,
-                hasWon && styles.progressBadgeWon,
+                hasWon &&
+                  styles.progressBadgeWon,
               ]}
             >
               <Text style={styles.progressText}>
@@ -380,96 +518,133 @@ export default function BingoGameScreen() {
           <View
             style={[
               styles.cardBoard,
-              hasWon && styles.cardBoardWon,
+              hasWon &&
+                styles.cardBoardWon,
             ]}
           >
+            {/* CABEÇALHO */}
             <View style={styles.columnHeaderRow}>
-              {['B', 'I', 'N', 'G', 'O'].map((letter) => (
-                <View
-                  key={letter}
-                  style={styles.columnHeader}
-                >
-                  <Text style={styles.columnHeaderText}>
-                    {letter}
-                  </Text>
-                </View>
-              ))}
+              {['B', 'I', 'N', 'G', 'O'].map(
+                (letter) => (
+                  <View
+                    key={letter}
+                    style={styles.columnHeader}
+                  >
+                    <Text
+                      style={
+                        styles.columnHeaderText
+                      }
+                    >
+                      {letter}
+                    </Text>
+                  </View>
+                ),
+              )}
             </View>
 
+            {/* CARTELA */}
             <View style={styles.numberGrid}>
-              {CARD_NUMBERS.map((number, index) => {
-                const isFree = number === 0;
-                const isMarked =
-                  isFree || markedNumbers.has(number);
+              {cardNumbers.map(
+                (number, index) => {
+                  const isFree =
+                    number === 0;
 
-                const row = Math.floor(index / 5);
+                  const isMarked =
+                    isFree ||
+                    markedNumbers.has(number);
 
-                const rowNumbers = CARD_NUMBERS.slice(
-                  row * 5,
-                  row * 5 + 5,
-                );
+                  const row =
+                    Math.floor(index / 5);
 
-                const isWinningRow =
-                  hasWon &&
-                  rowNumbers.every((rowNumber) => {
-                    if (rowNumber === 0) {
-                      return true;
-                    }
+                  const rowNumbers =
+                    cardNumbers.slice(
+                      row * 5,
+                      row * 5 + 5,
+                    );
 
-                    return markedNumbers.has(rowNumber);
-                  });
+                  const isWinningRow =
+                    hasWon &&
+                    rowNumbers.every(
+                      (rowNumber) => {
+                        if (
+                          rowNumber === 0
+                        ) {
+                          return true;
+                        }
 
-                return (
-                  <View
-                    key={`${number}-${index}`}
-                    style={styles.numberCell}
-                  >
-                    <Pressable
-                      disabled={isFree || hasWon}
-                      onPress={() =>
-                        handleNumberPress(number)
-                      }
-                      style={({ pressed }) => [
-                        styles.numberInner,
-                        isFree && styles.freeInner,
-                        isMarked &&
-                          !isFree &&
-                          styles.markedInner,
-                        isWinningRow &&
-                          styles.winningInner,
-                        pressed &&
-                          !isFree &&
-                          !hasWon &&
-                          styles.numberPressed,
-                      ]}
+                        return markedNumbers.has(
+                          rowNumber,
+                        );
+                      },
+                    );
+
+                  return (
+                    <View
+                      key={`${number}-${index}`}
+                      style={styles.numberCell}
                     >
-                      {isFree ? (
-                        <>
-                          <Text style={styles.freeIcon}>
-                            ★
-                          </Text>
+                      <Pressable
+                        disabled={
+                          isFree || hasWon
+                        }
+                        onPress={() =>
+                          handleNumberPress(
+                            number,
+                          )
+                        }
+                        style={({
+                          pressed,
+                        }) => [
+                          styles.numberInner,
+                          isFree &&
+                            styles.freeInner,
+                          isMarked &&
+                            !isFree &&
+                            styles.markedInner,
+                          isWinningRow &&
+                            styles.winningInner,
+                          pressed &&
+                            !isFree &&
+                            !hasWon &&
+                            styles.numberPressed,
+                        ]}
+                      >
+                        {isFree ? (
+                          <>
+                            <Text
+                              style={
+                                styles.freeIcon
+                              }
+                            >
+                              ★
+                            </Text>
 
-                          <Text style={styles.freeText}>
-                            LIVRE
+                            <Text
+                              style={
+                                styles.freeText
+                              }
+                            >
+                              LIVRE
+                            </Text>
+                          </>
+                        ) : (
+                          <Text
+                            style={[
+                              styles.numberText,
+                              isMarked &&
+                                styles.markedText,
+                              isWinningRow &&
+                                styles.winningText,
+                            ]}
+                          >
+                            {number}
                           </Text>
-                        </>
-                      ) : (
-                        <Text
-                          style={[
-                            styles.numberText,
-                            isMarked &&
-                              styles.markedText,
-                            isWinningRow &&
-                              styles.winningText,
-                          ]}
-                        >
-                          {number}
-                        </Text>
-                      )}
-                    </Pressable>
-                  </View>
-                );
-              })}
+                        )}
+                      </Pressable>
+                    </View>
+                  );
+                },
+              )}
             </View>
           </View>
         </View>
@@ -480,7 +655,8 @@ export default function BingoGameScreen() {
             disabled={hasWon}
             style={({ pressed }) => [
               styles.autoButton,
-              hasWon && styles.disabledControl,
+              hasWon &&
+                styles.disabledControl,
               pressed &&
                 !hasWon &&
                 styles.pressed,
@@ -490,7 +666,8 @@ export default function BingoGameScreen() {
             <View
               style={[
                 styles.autoIcon,
-                autoMark && styles.autoIconActive,
+                autoMark &&
+                  styles.autoIconActive,
               ]}
             >
               <Text style={styles.autoIconText}>
@@ -515,8 +692,10 @@ export default function BingoGameScreen() {
             <View
               style={[
                 styles.toggle,
-                !autoMark && styles.toggleOff,
-                hasWon && styles.toggleOff,
+                !autoMark &&
+                  styles.toggleOff,
+                hasWon &&
+                  styles.toggleOff,
               ]}
             >
               <View
@@ -536,16 +715,20 @@ export default function BingoGameScreen() {
         <View
           style={[
             styles.hostSection,
-            hasWon && styles.hostSectionWon,
+            hasWon &&
+              styles.hostSectionWon,
           ]}
         >
           <View
             style={[
               styles.hostBubble,
-              hasWon && styles.hostBubbleWon,
+              hasWon &&
+                styles.hostBubbleWon,
             ]}
           >
-            <Text style={styles.hostBubbleText}>
+            <Text
+              style={styles.hostBubbleText}
+            >
               B
             </Text>
           </View>
@@ -554,22 +737,29 @@ export default function BingoGameScreen() {
             <Text
               style={[
                 styles.hostName,
-                hasWon && styles.hostNameWon,
+                hasWon &&
+                  styles.hostNameWon,
               ]}
             >
               Bianca + Bob
             </Text>
 
-            <Text style={styles.hostMessageText}>
+            <Text
+              style={styles.hostMessageText}
+            >
               {hasWon
                 ? 'BINGO! Eu sabia que você conseguiria!'
                 : drawnNumber === null
                   ? 'Vamos começar? Clique em próximo número!'
                   : isFinished
                     ? 'Todos os números saíram. Agora é hora de conferir a cartela!'
-                    : markedNumbers.has(drawnNumber)
+                    : markedNumbers.has(
+                          drawnNumber,
+                        )
                       ? 'Boa! Esse número já está marcado!'
-                      : CARD_NUMBERS.includes(drawnNumber)
+                      : cardNumbers.includes(
+                            drawnNumber,
+                          )
                         ? 'Esse número está na sua cartela!'
                         : 'Esse não veio para sua cartela. Vamos continuar!'}
             </Text>
@@ -578,10 +768,13 @@ export default function BingoGameScreen() {
           <View
             style={[
               styles.hostBubble,
-              hasWon && styles.hostBubbleWon,
+              hasWon &&
+                styles.hostBubbleWon,
             ]}
           >
-            <Text style={styles.hostBubbleText}>
+            <Text
+              style={styles.hostBubbleText}
+            >
               B
             </Text>
           </View>
@@ -593,7 +786,8 @@ export default function BingoGameScreen() {
             onPress={handlePlayAgain}
             style={({ pressed }) => [
               styles.playAgainButton,
-              pressed && styles.pressed,
+              pressed &&
+                styles.pressed,
             ]}
           >
             <Text style={styles.playAgainText}>
@@ -624,7 +818,9 @@ export default function BingoGameScreen() {
             </Text>
 
             {!isFinished && (
-              <Text style={styles.nextButtonArrow}>
+              <Text
+                style={styles.nextButtonArrow}
+              >
                 ›
               </Text>
             )}
@@ -854,13 +1050,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
   },
 
   confetti: {
     color: '#F6CA5F',
     fontSize: 20,
     fontWeight: '900',
+    marginHorizontal: 8,
   },
 
   victoryTitle: {
