@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import {
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 const INITIAL_CHIPS = 1000;
@@ -198,6 +198,9 @@ export default function BingoGameScreen() {
 
   const [showFullHistory, setShowFullHistory] =
     useState(false);
+
+  const [hitCombo, setHitCombo] =
+    useState(0);
 
   const markedCount =
     markedNumbers.size;
@@ -472,6 +475,13 @@ const hitCardNumber =
       ],
     );
 
+    const numberIsOnCard =
+      cardNumbers.includes(nextNumber);
+
+    setHitCombo((current) =>
+      numberIsOnCard ? current + 1 : 0,
+    );
+
     if (
       autoMark &&
       cardNumbers.includes(
@@ -532,6 +542,8 @@ const hitCardNumber =
     setHasWon(false);
 
     setRewardGiven(false);
+
+    setHitCombo(0);
 
     setShowFullHistory(
       false,
@@ -1876,6 +1888,22 @@ const hitCardNumber =
               </View>
             )}
 
+            {hitCombo >= 2 && !almostBingo && !hasWon && (
+              <View
+                style={
+                  styles.hostComboBadge
+                }
+              >
+                <Text
+                  style={
+                    styles.hostComboBadgeText
+                  }
+                >
+                  COMBO x{hitCombo}
+                </Text>
+              </View>
+            )}
+
             <Text
               style={[
                 styles.hostMessageText,
@@ -3144,6 +3172,22 @@ hostNameHit: {
 
   hostAlmostBadgeText: {
     color: '#523A00',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+
+  hostComboBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#1BCB83',
+  },
+
+  hostComboBadgeText: {
+    color: '#062A25',
     fontSize: 7,
     fontWeight: '900',
     letterSpacing: 0.7,
