@@ -202,6 +202,9 @@ export default function BingoGameScreen() {
   const [hitCombo, setHitCombo] =
     useState(0);
 
+  const [bestHitCombo, setBestHitCombo] =
+    useState(0);
+
   const markedCount =
     markedNumbers.size;
 
@@ -478,8 +481,19 @@ const hitCardNumber =
     const numberIsOnCard =
       cardNumbers.includes(nextNumber);
 
-    setHitCombo((current) =>
-      numberIsOnCard ? current + 1 : 0,
+    const nextCombo =
+      numberIsOnCard
+        ? hitCombo + 1
+        : 0;
+
+    setHitCombo(nextCombo);
+
+    setBestHitCombo(
+      (currentBest) =>
+        Math.max(
+          currentBest,
+          nextCombo,
+        ),
     );
 
     if (
@@ -544,6 +558,8 @@ const hitCardNumber =
     setRewardGiven(false);
 
     setHitCombo(0);
+
+    setBestHitCombo(0);
 
     setShowFullHistory(
       false,
@@ -1519,6 +1535,146 @@ const hitCardNumber =
               Bianca e Bob estão
               comemorando com você!
             </Text>
+
+            <View
+              style={
+                styles.matchSummaryCard
+              }
+            >
+              <Text
+                style={
+                  styles.matchSummaryTitle
+                }
+              >
+                RESUMO DA PARTIDA
+              </Text>
+
+              <View
+                style={
+                  styles.matchSummaryGrid
+                }
+              >
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🎱
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    SORTEADOS
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    {drawnNumbers.length}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🔥
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    MELHOR COMBO
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    x{bestHitCombo}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🎯
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    CARTELA
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    24 / 24
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🌴
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    VILA
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    NÍVEL {villageLevel}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         )}
 
@@ -1884,22 +2040,6 @@ const hitCardNumber =
                   }
                 >
                   QUASE BINGO!
-                </Text>
-              </View>
-            )}
-
-            {hitCombo >= 2 && !almostBingo && !hasWon && (
-              <View
-                style={
-                  styles.hostComboBadge
-                }
-              >
-                <Text
-                  style={
-                    styles.hostComboBadgeText
-                  }
-                >
-                  COMBO x{hitCombo}
                 </Text>
               </View>
             )}
@@ -2847,6 +2987,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  matchSummaryCard: {
+    width: '100%',
+    marginTop: 14,
+    borderRadius: 18,
+    backgroundColor: '#082F3B',
+    borderWidth: 1,
+    borderColor: '#2CA58D',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+
+  matchSummaryTitle: {
+    color: '#B9F0EC',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+
+  matchSummaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
+  matchSummaryItem: {
+    width: '48.5%',
+    minHeight: 78,
+    borderRadius: 14,
+    backgroundColor: '#123456',
+    borderWidth: 1,
+    borderColor: '#21476F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 7,
+    paddingHorizontal: 5,
+  },
+
+  matchSummaryIcon: {
+    fontSize: 15,
+  },
+
+  matchSummaryLabel: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    marginTop: 3,
+    textAlign: 'center',
+  },
+
+  matchSummaryValue: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
   cardSection: {
     marginBottom: 18,
   },
@@ -3172,22 +3372,6 @@ hostNameHit: {
 
   hostAlmostBadgeText: {
     color: '#523A00',
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
-
-  hostComboBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: '#1BCB83',
-  },
-
-  hostComboBadgeText: {
-    color: '#062A25',
     fontSize: 7,
     fontWeight: '900',
     letterSpacing: 0.7,
