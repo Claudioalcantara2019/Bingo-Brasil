@@ -18,12 +18,13 @@ export default function BiancaHost({ source }: BiancaHostProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
   },
 
   image: {
-    width: 180,
-    height: 240,
+    width: 285,
+    height: 330,
   },
 });

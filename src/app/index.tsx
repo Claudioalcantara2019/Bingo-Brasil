@@ -73,20 +73,29 @@ export default function HomeScreen() {
 
           {/* ANFITRIÕES */}
           <View style={styles.hostsPlaceholder}>
-            <BiancaHost
-              source={require('@/assets/images/REFERENCIA-MESTRE-BIANCA-BOB.png')}
-            />
+            <View style={styles.hostSide}>
+              <BiancaHost
+                source={require('@/assets/images/BIANCA-OFICIAL.png')}
+              />
+            </View>
 
             <View style={styles.hostCenter}>
-              <Text style={styles.hostTitle}>Bianca + Bob</Text>
+              <View style={styles.hostCenterBadge}>
+                <Text style={styles.hostCenterBadgeText}>BB</Text>
+              </View>
+
+              <Text style={styles.hostTitle}>Nossos anfitriões</Text>
+
               <Text style={styles.hostSubtitle}>
-                Seus anfitriões do Bingo Brasil
+                Bianca + Bob
               </Text>
             </View>
 
-            <BobHost
-              source={require('@/assets/images/REFERENCIA-MESTRE-BIANCA-BOB.png')}
-            />
+            <View style={styles.hostSide}>
+              <BobHost
+                source={require('@/assets/images/BOB-OFICIAL.png')}
+              />
+            </View>
           </View>
 
           {/* BOTÃO PRINCIPAL */}
@@ -389,34 +398,64 @@ const styles = StyleSheet.create({
   hostsPlaceholder: {
     marginTop: 22,
     marginBottom: 22,
-    minHeight: 74,
-    borderRadius: 22,
+    minHeight: 360,
+    borderRadius: 24,
     backgroundColor: 'rgba(4, 31, 59, 0.28)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.16)',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 6,
+    overflow: 'hidden',
+  },
+
+  hostSide: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
 
   hostCenter: {
+    width: 115,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 48,
+    zIndex: 5,
+  },
+
+  hostCenterBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F6CA5F',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+
+  hostCenterBadgeText: {
+    color: '#09203C',
+    fontSize: 14,
+    fontWeight: '900',
   },
 
   hostTitle: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 
   hostSubtitle: {
     color: '#B9F0EC',
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 10,
+    marginTop: 5,
     textAlign: 'center',
+    lineHeight: 14,
   },
 
   playButton: {

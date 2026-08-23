@@ -18,12 +18,13 @@ export default function BobHost({ source }: BobHostProps) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
   },
 
   image: {
-    width: 180,
-    height: 240,
+    width: 220,
+    height: 330,
   },
 });
