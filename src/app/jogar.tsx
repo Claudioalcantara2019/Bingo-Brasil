@@ -13,6 +13,9 @@ const WIN_REWARD = 100;
 const WIN_XP = 50;
 const XP_PER_LEVEL = 100;
 
+const MISSION_TARGET = 3;
+const MISSION_REWARD = 150;
+
 function shuffleNumbers(numbers: number[]) {
   const shuffled = [...numbers];
 
@@ -183,6 +186,12 @@ export default function BingoGameScreen() {
   const [rewardGiven, setRewardGiven] =
     useState(false);
 
+  const [bingosCompleted, setBingosCompleted] =
+    useState(0);
+
+  const [missionRewardGiven, setMissionRewardGiven] =
+    useState(false);
+
   const markedCount =
     markedNumbers.size;
 
@@ -191,6 +200,20 @@ export default function BingoGameScreen() {
 
   const progressPercentage =
     (levelProgress / XP_PER_LEVEL) * 100;
+
+  const missionProgress =
+    Math.min(
+      bingosCompleted,
+      MISSION_TARGET,
+    );
+
+  const missionPercentage =
+    (missionProgress /
+      MISSION_TARGET) *
+    100;
+
+  const missionCompleted =
+    bingosCompleted >= MISSION_TARGET;
 
   const awardVictory = (
     nextMarkedNumbers: Set<number>,
@@ -218,6 +241,31 @@ export default function BingoGameScreen() {
           setLevel(nextLevel);
 
           return updatedXp;
+        },
+      );
+
+      setBingosCompleted(
+        (current) => {
+          const updated =
+            current + 1;
+
+          if (
+            updated >=
+              MISSION_TARGET &&
+            !missionRewardGiven
+          ) {
+            setChips(
+              (currentChips) =>
+                currentChips +
+                MISSION_REWARD,
+            );
+
+            setMissionRewardGiven(
+              true,
+            );
+          }
+
+          return updated;
         },
       );
 
@@ -542,9 +590,119 @@ export default function BingoGameScreen() {
                 styles.progressHint
               }
             >
-              Mais {XP_PER_LEVEL - levelProgress} XP
-              para o próximo nível
+              Mais{' '}
+              {XP_PER_LEVEL -
+                levelProgress}{' '}
+              XP para o próximo nível
             </Text>
+          </View>
+        </View>
+
+        {/* MISSÃO */}
+        <View
+          style={[
+            styles.missionCard,
+            missionCompleted &&
+              styles.missionCardCompleted,
+          ]}
+        >
+          <View
+            style={[
+              styles.missionIcon,
+              missionCompleted &&
+                styles.missionIconCompleted,
+            ]}
+          >
+            <Text
+              style={
+                styles.missionIconText
+              }
+            >
+              {missionCompleted
+                ? '✓'
+                : '★'}
+            </Text>
+          </View>
+
+          <View
+            style={
+              styles.missionContent
+            }
+          >
+            <Text
+              style={
+                styles.missionLabel
+              }
+            >
+              DESAFIO DA VILA
+            </Text>
+
+            <Text
+              style={
+                styles.missionTitle
+              }
+            >
+              Faça 3 Bingos
+            </Text>
+
+            <View
+              style={
+                styles.missionTrack
+              }
+            >
+              <View
+                style={[
+                  styles.missionFill,
+                  {
+                    width: `${missionPercentage}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <Text
+              style={
+                styles.missionProgressText
+              }
+            >
+              {missionProgress} /{' '}
+              {MISSION_TARGET}{' '}
+              Bingos
+            </Text>
+          </View>
+
+          <View
+            style={
+              styles.missionReward
+            }
+          >
+            <Text
+              style={
+                styles.missionRewardLabel
+              }
+            >
+              RECOMPENSA
+            </Text>
+
+            <Text
+              style={
+                styles.missionRewardValue
+              }
+            >
+              {missionCompleted
+                ? 'CONCLUÍDO'
+                : `+${MISSION_REWARD}`}
+            </Text>
+
+            {!missionCompleted && (
+              <Text
+                style={
+                  styles.missionRewardSub
+                }
+              >
+                fichas
+              </Text>
+            )}
           </View>
         </View>
 
@@ -827,6 +985,30 @@ export default function BingoGameScreen() {
                 Progresso salvo
               </Text>
             </View>
+
+            {missionCompleted && (
+              <View
+                style={
+                  styles.missionCompleteReward
+                }
+              >
+                <Text
+                  style={
+                    styles.missionCompleteTitle
+                  }
+                >
+                  DESAFIO CONCLUÍDO!
+                </Text>
+
+                <Text
+                  style={
+                    styles.missionCompleteText
+                  }
+                >
+                  +{MISSION_REWARD} fichas
+                </Text>
+              </View>
+            )}
 
             <Text
               style={
@@ -1177,7 +1359,9 @@ export default function BingoGameScreen() {
               }
             >
               {hasWon
-                ? 'BINGO! Eu sabia que você conseguiria!'
+                ? missionCompleted
+                  ? 'BINGO! E ainda concluímos o Desafio da Vila!'
+                  : 'BINGO! Eu sabia que você conseguiria!'
                 : drawnNumber === null
                   ? 'Vamos começar? Clique em próximo número!'
                   : isFinished
@@ -1380,7 +1564,7 @@ const styles = StyleSheet.create({
     borderColor: '#56D6D1',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 18,
+    marginBottom: 14,
   },
 
   progressTop: {
@@ -1452,6 +1636,140 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flexShrink: 1,
     marginLeft: 10,
+  },
+
+  missionCard: {
+    minHeight: 92,
+    borderRadius: 20,
+    backgroundColor: '#0D2342',
+    borderWidth: 1,
+    borderColor: '#315176',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+
+  missionCardCompleted: {
+    backgroundColor: '#0B6E58',
+    borderColor: '#1BCB83',
+  },
+
+  missionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6D58B8',
+    marginRight: 11,
+  },
+
+  missionIconCompleted: {
+    backgroundColor: '#1BCB83',
+  },
+
+  missionIconText: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+
+  missionContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  missionLabel: {
+    color: '#7EB2D3',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  missionTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+
+  missionTrack: {
+    width: '100%',
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#183A58',
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+
+  missionFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#F6CA5F',
+  },
+
+  missionProgressText: {
+    color: '#7EB2D3',
+    fontSize: 8,
+    marginTop: 4,
+  },
+
+  missionReward: {
+    width: 74,
+    minHeight: 58,
+    borderRadius: 14,
+    backgroundColor: '#123456',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+    paddingHorizontal: 5,
+  },
+
+  missionRewardLabel: {
+    color: '#7197B0',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+  },
+
+  missionRewardValue: {
+    color: '#F6CA5F',
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
+  missionRewardSub: {
+    color: '#8CADBE',
+    fontSize: 7,
+    marginTop: 1,
+  },
+
+  missionCompleteReward: {
+    width: '100%',
+    marginTop: 10,
+    borderRadius: 14,
+    backgroundColor: '#123456',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+
+  missionCompleteTitle: {
+    color: '#F6CA5F',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  missionCompleteText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 3,
   },
 
   statusRow: {
