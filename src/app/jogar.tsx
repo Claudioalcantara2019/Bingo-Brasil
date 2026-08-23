@@ -16,6 +16,9 @@ const CARD_NUMBERS = [
   14, 29, 45, 60, 75,
 ];
 
+const INITIAL_CHIPS = 1000;
+const WIN_REWARD = 100;
+
 function getNextNumber(usedNumbers: number[]) {
   const availableNumbers = Array.from(
     { length: 75 },
@@ -53,6 +56,27 @@ function getBingoLetter(number: number) {
   return 'O';
 }
 
+function hasHorizontalBingo(markedNumbers: Set<number>) {
+  for (let row = 0; row < 5; row += 1) {
+    const start = row * 5;
+    const rowNumbers = CARD_NUMBERS.slice(start, start + 5);
+
+    const complete = rowNumbers.every((number) => {
+      if (number === 0) {
+        return true;
+      }
+
+      return markedNumbers.has(number);
+    });
+
+    if (complete) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export default function BingoGameScreen() {
   const [drawnNumber, setDrawnNumber] = useState<number | null>(
     null,
@@ -68,10 +92,25 @@ export default function BingoGameScreen() {
 
   const [autoMark, setAutoMark] = useState(true);
 
+  const [hasWon, setHasWon] = useState(false);
+
+  const [chips, setChips] = useState(INITIAL_CHIPS);
+
+  const [rewardGiven, setRewardGiven] = useState(false);
+
   const markedCount = markedNumbers.size;
 
+  const completeVictory = () => {
+    setHasWon(true);
+
+    if (!rewardGiven) {
+      setChips((current) => current + WIN_REWARD);
+      setRewardGiven(true);
+    }
+  };
+
   const handleNumberPress = (number: number) => {
-    if (number === 0) {
+    if (number === 0 || hasWon) {
       return;
     }
 
@@ -84,11 +123,19 @@ export default function BingoGameScreen() {
         next.add(number);
       }
 
+      if (hasHorizontalBingo(next)) {
+        completeVictory();
+      }
+
       return next;
     });
   };
 
   const handleNextNumber = () => {
+    if (hasWon) {
+      return;
+    }
+
     const nextNumber = getNextNumber(drawnNumbers);
 
     if (nextNumber === null) {
@@ -109,13 +156,32 @@ export default function BingoGameScreen() {
       setMarkedNumbers((current) => {
         const next = new Set(current);
         next.add(nextNumber);
+
+        if (hasHorizontalBingo(next)) {
+          completeVictory();
+        }
+
         return next;
       });
     }
   };
 
   const toggleAutoMark = () => {
+    if (hasWon) {
+      return;
+    }
+
     setAutoMark((current) => !current);
+  };
+
+  const handlePlayAgain = () => {
+    setDrawnNumber(null);
+    setDrawnNumbers([]);
+    setMarkedNumbers(new Set());
+    setAutoMark(true);
+    setHasWon(false);
+    setRewardGiven(false);
+    setChips((current) => current);
   };
 
   const isFinished = drawnNumbers.length >= 75;
@@ -126,7 +192,9 @@ export default function BingoGameScreen() {
 
   let drawMessage = 'Toque em PRÓXIMO NÚMERO para começar';
 
-  if (isFinished) {
+  if (hasWon) {
+    drawMessage = 'Você completou uma linha!';
+  } else if (isFinished) {
     drawMessage = 'Todos os números foram sorteados!';
   } else if (drawnNumber !== null) {
     const isNumberMarked = markedNumbers.has(drawnNumber);
@@ -161,11 +229,13 @@ export default function BingoGameScreen() {
 
           <View style={styles.chipBadge}>
             <Text style={styles.chipIcon}>●</Text>
-            <Text style={styles.chipValue}>1.000</Text>
+            <Text style={styles.chipValue}>
+              {chips.toLocaleString('pt-BR')}
+            </Text>
           </View>
         </View>
 
-        {/* STATUS DA PARTIDA */}
+        {/* STATUS */}
         <View style={styles.statusRow}>
           <View style={styles.statusCard}>
             <Text style={styles.statusLabel}>PARTIDA</Text>
@@ -185,28 +255,100 @@ export default function BingoGameScreen() {
           </View>
         </View>
 
-        {/* NÚMERO SORTEADO */}
-        <View style={styles.drawSection}>
-          <Text style={styles.drawLabel}>ÚLTIMO NÚMERO</Text>
+        {/* NÚMERO / RESULTADO */}
+        <View
+          style={[
+            styles.drawSection,
+            hasWon && styles.drawSectionWon,
+          ]}
+        >
+          <Text style={styles.drawLabel}>
+            {hasWon ? 'RESULTADO DA PARTIDA' : 'ÚLTIMO NÚMERO'}
+          </Text>
 
           <View style={styles.ballRow}>
-            <View style={styles.bingoBall}>
-              <View style={styles.ballInner}>
+            <View
+              style={[
+                styles.bingoBall,
+                hasWon && styles.bingoBallWon,
+              ]}
+            >
+              <View
+                style={[
+                  styles.ballInner,
+                  hasWon && styles.ballInnerWon,
+                ]}
+              >
                 <Text style={styles.ballLetter}>
-                  {currentLetter}
+                  {hasWon
+                    ? '★'
+                    : currentLetter}
                 </Text>
 
-                <Text style={styles.ballNumber}>
-                  {drawnNumber ?? '—'}
+                <Text
+                  style={[
+                    styles.ballNumber,
+                    hasWon && styles.ballNumberWon,
+                  ]}
+                >
+                  {hasWon
+                    ? 'BINGO!'
+                    : drawnNumber ?? '—'}
                 </Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.drawMessage}>
+          <Text
+            style={[
+              styles.drawMessage,
+              hasWon && styles.drawMessageWon,
+            ]}
+          >
             {drawMessage}
           </Text>
         </View>
+
+        {/* CELEBRAÇÃO */}
+        {hasWon && (
+          <View style={styles.victoryCard}>
+            <View style={styles.confettiRow}>
+              <Text style={styles.confetti}>✦</Text>
+              <Text style={styles.confetti}>★</Text>
+              <Text style={styles.confetti}>✦</Text>
+              <Text style={styles.confetti}>★</Text>
+              <Text style={styles.confetti}>✦</Text>
+            </View>
+
+            <Text style={styles.victoryTitle}>
+              BINGO!
+            </Text>
+
+            <Text style={styles.victorySubtitle}>
+              Você completou uma linha!
+            </Text>
+
+            <View style={styles.rewardCard}>
+              <View style={styles.rewardIcon}>
+                <Text style={styles.rewardIconText}>+</Text>
+              </View>
+
+              <View style={styles.rewardContent}>
+                <Text style={styles.rewardLabel}>
+                  RECOMPENSA
+                </Text>
+
+                <Text style={styles.rewardValue}>
+                  +{WIN_REWARD} fichas
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.victoryMessage}>
+              Bianca e Bob estão comemorando com você!
+            </Text>
+          </View>
+        )}
 
         {/* CARTELA */}
         <View style={styles.cardSection}>
@@ -217,19 +359,30 @@ export default function BingoGameScreen() {
               </Text>
 
               <Text style={styles.cardSubtitle}>
-                Toque em um número para marcar
+                {hasWon
+                  ? 'Linha vencedora destacada'
+                  : 'Toque em um número para marcar'}
               </Text>
             </View>
 
-            <View style={styles.progressBadge}>
+            <View
+              style={[
+                styles.progressBadge,
+                hasWon && styles.progressBadgeWon,
+              ]}
+            >
               <Text style={styles.progressText}>
                 {markedCount} / 24
               </Text>
             </View>
           </View>
 
-          <View style={styles.cardBoard}>
-            {/* CABEÇALHO */}
+          <View
+            style={[
+              styles.cardBoard,
+              hasWon && styles.cardBoardWon,
+            ]}
+          >
             <View style={styles.columnHeaderRow}>
               {['B', 'I', 'N', 'G', 'O'].map((letter) => (
                 <View
@@ -243,11 +396,28 @@ export default function BingoGameScreen() {
               ))}
             </View>
 
-            {/* CARTELA */}
             <View style={styles.numberGrid}>
               {CARD_NUMBERS.map((number, index) => {
                 const isFree = number === 0;
-                const isMarked = markedNumbers.has(number);
+                const isMarked =
+                  isFree || markedNumbers.has(number);
+
+                const row = Math.floor(index / 5);
+
+                const rowNumbers = CARD_NUMBERS.slice(
+                  row * 5,
+                  row * 5 + 5,
+                );
+
+                const isWinningRow =
+                  hasWon &&
+                  rowNumbers.every((rowNumber) => {
+                    if (rowNumber === 0) {
+                      return true;
+                    }
+
+                    return markedNumbers.has(rowNumber);
+                  });
 
                 return (
                   <View
@@ -255,16 +425,21 @@ export default function BingoGameScreen() {
                     style={styles.numberCell}
                   >
                     <Pressable
-                      disabled={isFree}
+                      disabled={isFree || hasWon}
                       onPress={() =>
                         handleNumberPress(number)
                       }
                       style={({ pressed }) => [
                         styles.numberInner,
                         isFree && styles.freeInner,
-                        isMarked && styles.markedInner,
+                        isMarked &&
+                          !isFree &&
+                          styles.markedInner,
+                        isWinningRow &&
+                          styles.winningInner,
                         pressed &&
                           !isFree &&
+                          !hasWon &&
                           styles.numberPressed,
                       ]}
                     >
@@ -282,7 +457,10 @@ export default function BingoGameScreen() {
                         <Text
                           style={[
                             styles.numberText,
-                            isMarked && styles.markedText,
+                            isMarked &&
+                              styles.markedText,
+                            isWinningRow &&
+                              styles.winningText,
                           ]}
                         >
                           {number}
@@ -296,12 +474,16 @@ export default function BingoGameScreen() {
           </View>
         </View>
 
-        {/* CONTROLES */}
+        {/* MARCAÇÃO AUTOMÁTICA */}
         <View style={styles.controls}>
           <Pressable
+            disabled={hasWon}
             style={({ pressed }) => [
               styles.autoButton,
-              pressed && styles.pressed,
+              hasWon && styles.disabledControl,
+              pressed &&
+                !hasWon &&
+                styles.pressed,
             ]}
             onPress={toggleAutoMark}
           >
@@ -322,9 +504,11 @@ export default function BingoGameScreen() {
               </Text>
 
               <Text style={styles.autoSubtitle}>
-                {autoMark
-                  ? 'Ativada para números sorteados'
-                  : 'Desativada — toque para marcar'}
+                {hasWon
+                  ? 'Partida encerrada'
+                  : autoMark
+                    ? 'Ativada para números sorteados'
+                    : 'Desativada — toque para marcar'}
               </Text>
             </View>
 
@@ -332,12 +516,16 @@ export default function BingoGameScreen() {
               style={[
                 styles.toggle,
                 !autoMark && styles.toggleOff,
+                hasWon && styles.toggleOff,
               ]}
             >
               <View
                 style={[
                   styles.toggleKnob,
-                  !autoMark && styles.toggleKnobOff,
+                  !autoMark &&
+                    styles.toggleKnobOff,
+                  hasWon &&
+                    styles.toggleKnobOff,
                 ]}
               />
             </View>
@@ -345,59 +533,108 @@ export default function BingoGameScreen() {
         </View>
 
         {/* ANFITRIÕES */}
-        <View style={styles.hostSection}>
-          <View style={styles.hostBubble}>
-            <Text style={styles.hostBubbleText}>B</Text>
+        <View
+          style={[
+            styles.hostSection,
+            hasWon && styles.hostSectionWon,
+          ]}
+        >
+          <View
+            style={[
+              styles.hostBubble,
+              hasWon && styles.hostBubbleWon,
+            ]}
+          >
+            <Text style={styles.hostBubbleText}>
+              B
+            </Text>
           </View>
 
           <View style={styles.hostMessage}>
-            <Text style={styles.hostName}>
+            <Text
+              style={[
+                styles.hostName,
+                hasWon && styles.hostNameWon,
+              ]}
+            >
               Bianca + Bob
             </Text>
 
             <Text style={styles.hostMessageText}>
-              {drawnNumber === null
-                ? 'Vamos começar? Clique em próximo número!'
-                : isFinished
-                  ? 'Todos os números saíram. Agora é hora de conferir a cartela!'
-                  : markedNumbers.has(drawnNumber)
-                    ? 'Boa! Esse número já está marcado!'
-                    : CARD_NUMBERS.includes(drawnNumber)
-                      ? 'Esse número está na sua cartela!'
-                      : 'Esse não veio para sua cartela. Vamos continuar!'}
+              {hasWon
+                ? 'BINGO! Eu sabia que você conseguiria!'
+                : drawnNumber === null
+                  ? 'Vamos começar? Clique em próximo número!'
+                  : isFinished
+                    ? 'Todos os números saíram. Agora é hora de conferir a cartela!'
+                    : markedNumbers.has(drawnNumber)
+                      ? 'Boa! Esse número já está marcado!'
+                      : CARD_NUMBERS.includes(drawnNumber)
+                        ? 'Esse número está na sua cartela!'
+                        : 'Esse não veio para sua cartela. Vamos continuar!'}
             </Text>
           </View>
 
-          <View style={styles.hostBubble}>
-            <Text style={styles.hostBubbleText}>B</Text>
+          <View
+            style={[
+              styles.hostBubble,
+              hasWon && styles.hostBubbleWon,
+            ]}
+          >
+            <Text style={styles.hostBubbleText}>
+              B
+            </Text>
           </View>
         </View>
 
-        {/* BOTÃO */}
-        <Pressable
-          disabled={isFinished}
-          onPress={handleNextNumber}
-          style={({ pressed }) => [
-            styles.nextButton,
-            isFinished && styles.nextButtonDisabled,
-            pressed &&
-              !isFinished &&
-              styles.pressed,
-          ]}
-        >
-          <Text style={styles.nextButtonText}>
-            {isFinished
-              ? 'SORTEIO ENCERRADO'
-              : 'PRÓXIMO NÚMERO'}
-          </Text>
+        {/* AÇÃO */}
+        {hasWon ? (
+          <Pressable
+            onPress={handlePlayAgain}
+            style={({ pressed }) => [
+              styles.playAgainButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.playAgainText}>
+              JOGAR NOVAMENTE
+            </Text>
 
-          {!isFinished && (
-            <Text style={styles.nextButtonArrow}>›</Text>
-          )}
-        </Pressable>
+            <Text style={styles.nextButtonArrow}>
+              ›
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            disabled={isFinished}
+            onPress={handleNextNumber}
+            style={({ pressed }) => [
+              styles.nextButton,
+              isFinished &&
+                styles.nextButtonDisabled,
+              pressed &&
+                !isFinished &&
+                styles.pressed,
+            ]}
+          >
+            <Text style={styles.nextButtonText}>
+              {isFinished
+                ? 'SORTEIO ENCERRADO'
+                : 'PRÓXIMO NÚMERO'}
+            </Text>
+
+            {!isFinished && (
+              <Text style={styles.nextButtonArrow}>
+                ›
+              </Text>
+            )}
+          </Pressable>
+        )}
 
         <Text style={styles.footerHint}>
-          {drawnNumbers.length} de 75 números sorteados
+          {hasWon
+            ? 'Sua primeira vitória no Bingo Brasil!'
+            : `${drawnNumbers.length} de 75 números sorteados`}
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -521,6 +758,10 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+  drawSectionWon: {
+    marginBottom: 16,
+  },
+
   drawLabel: {
     color: '#7EB2D3',
     fontSize: 10,
@@ -545,6 +786,11 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
 
+  bingoBallWon: {
+    backgroundColor: '#1BCB83',
+    borderColor: '#A9FFE0',
+  },
+
   ballInner: {
     width: 88,
     height: 88,
@@ -554,6 +800,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#0E8FA2',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+  },
+
+  ballInnerWon: {
+    backgroundColor: '#0A7159',
   },
 
   ballLetter: {
@@ -568,6 +818,12 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '900',
     marginTop: 1,
+    textAlign: 'center',
+  },
+
+  ballNumberWon: {
+    fontSize: 20,
+    letterSpacing: 0.5,
   },
 
   drawMessage: {
@@ -575,6 +831,103 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     marginTop: 9,
+    textAlign: 'center',
+  },
+
+  drawMessageWon: {
+    color: '#1BCB83',
+    fontSize: 14,
+  },
+
+  victoryCard: {
+    borderRadius: 24,
+    backgroundColor: '#0B6E58',
+    borderWidth: 2,
+    borderColor: '#1BCB83',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+
+  confettiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+
+  confetti: {
+    color: '#F6CA5F',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+
+  victoryTitle: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginTop: 6,
+  },
+
+  victorySubtitle: {
+    color: '#D4FFF1',
+    fontSize: 13,
+    marginTop: 3,
+  },
+
+  rewardCard: {
+    width: '100%',
+    minHeight: 70,
+    marginTop: 16,
+    borderRadius: 18,
+    backgroundColor: '#082F3B',
+    borderWidth: 1,
+    borderColor: '#2CA58D',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  rewardIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F6CA5F',
+    marginRight: 12,
+  },
+
+  rewardIconText: {
+    color: '#09203C',
+    fontSize: 23,
+    fontWeight: '900',
+  },
+
+  rewardContent: {
+    flex: 1,
+  },
+
+  rewardLabel: {
+    color: '#85BFB6',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  rewardValue: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+
+  victoryMessage: {
+    color: '#D4FFF1',
+    fontSize: 11,
+    marginTop: 12,
     textAlign: 'center',
   },
 
@@ -612,6 +965,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  progressBadgeWon: {
+    backgroundColor: '#0F7A61',
+  },
+
   progressText: {
     color: '#A8EFEA',
     fontSize: 10,
@@ -627,6 +984,11 @@ const styles = StyleSheet.create({
     padding: 9,
     borderWidth: 2,
     borderColor: '#F6CA5F',
+  },
+
+  cardBoardWon: {
+    borderColor: '#1BCB83',
+    borderWidth: 3,
   },
 
   columnHeaderRow: {
@@ -707,6 +1069,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
 
+  winningInner: {
+    backgroundColor: '#20D892',
+    borderColor: '#FFFFFF',
+    borderWidth: 2,
+  },
+
+  winningText: {
+    color: '#04251E',
+  },
+
   controls: {
     marginBottom: 16,
   },
@@ -720,6 +1092,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+
+  disabledControl: {
+    opacity: 0.7,
   },
 
   autoIcon: {
@@ -796,6 +1172,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  hostSectionWon: {
+    backgroundColor: '#0B7059',
+    borderColor: '#1BCB83',
+  },
+
   hostBubble: {
     width: 48,
     height: 48,
@@ -805,6 +1186,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6CA5F',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+  },
+
+  hostBubbleWon: {
+    backgroundColor: '#1BCB83',
   },
 
   hostBubbleText: {
@@ -825,6 +1210,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
 
+  hostNameWon: {
+    color: '#A9FFE0',
+  },
+
   hostMessageText: {
     color: '#FFFFFF',
     fontSize: 12,
@@ -841,6 +1230,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+
+  playAgainButton: {
+    minHeight: 64,
+    borderRadius: 20,
+    backgroundColor: '#F6CA5F',
+    borderWidth: 2,
+    borderColor: '#FFF2B9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+
+  playAgainText: {
+    color: '#09203C',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
 
   nextButtonDisabled: {
