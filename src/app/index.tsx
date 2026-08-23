@@ -70,7 +70,7 @@ export default function HomeScreen() {
 
           <View style={styles.hostsPlaceholder}>
             <View style={styles.hostBubble}>
-              <Text style={styles.hostInitial}>B</Text>
+              <Text style={styles.hostInitial}>BIANCA</Text>
             </View>
 
             <View style={styles.hostCenter}>
@@ -81,7 +81,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.hostBubble}>
-              <Text style={styles.hostInitial}>B</Text>
+              <Text style={styles.hostInitial}>BOB</Text>
             </View>
           </View>
 
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
 
   hostInitial: {
     color: '#09203C',
-    fontSize: 21,
+    fontSize: 10,
     fontWeight: '900',
   },
 
