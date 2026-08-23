@@ -16,6 +16,9 @@ const XP_PER_LEVEL = 100;
 const MISSION_TARGET = 3;
 const MISSION_REWARD = 150;
 
+const VILLAGE_BINGOS_PER_LEVEL = 5;
+const HISTORY_LIMIT = 5;
+
 function shuffleNumbers(numbers: number[]) {
   const shuffled = [...numbers];
 
@@ -133,15 +136,13 @@ function hasHorizontalBingo(
       start + 5,
     );
 
-    const complete = rowNumbers.every(
-      (number) => {
-        if (number === 0) {
-          return true;
-        }
+    const complete = rowNumbers.every((number) => {
+      if (number === 0) {
+        return true;
+      }
 
-        return markedNumbers.has(number);
-      },
-    );
+      return markedNumbers.has(number);
+    });
 
     if (complete) {
       return true;
@@ -152,10 +153,9 @@ function hasHorizontalBingo(
 }
 
 export default function BingoGameScreen() {
-  const [cardNumbers, setCardNumbers] =
-    useState<number[]>(
-      () => createBingoCard(),
-    );
+  const [cardNumbers, setCardNumbers] = useState<number[]>(
+    () => createBingoCard(),
+  );
 
   const [drawnNumber, setDrawnNumber] =
     useState<number | null>(null);
@@ -164,24 +164,18 @@ export default function BingoGameScreen() {
     useState<number[]>([]);
 
   const [markedNumbers, setMarkedNumbers] =
-    useState<Set<number>>(
-      new Set(),
-    );
+    useState<Set<number>>(new Set());
 
-  const [autoMark, setAutoMark] =
-    useState(true);
+  const [autoMark, setAutoMark] = useState(true);
 
-  const [hasWon, setHasWon] =
-    useState(false);
+  const [hasWon, setHasWon] = useState(false);
 
   const [chips, setChips] =
     useState(INITIAL_CHIPS);
 
-  const [xp, setXp] =
-    useState(0);
+  const [xp, setXp] = useState(0);
 
-  const [level, setLevel] =
-    useState(1);
+  const [level, setLevel] = useState(1);
 
   const [rewardGiven, setRewardGiven] =
     useState(false);
@@ -192,8 +186,13 @@ export default function BingoGameScreen() {
   const [missionRewardGiven, setMissionRewardGiven] =
     useState(false);
 
-  const markedCount =
-    markedNumbers.size;
+  const [villageBingos, setVillageBingos] =
+    useState(0);
+
+  const [showFullHistory, setShowFullHistory] =
+    useState(false);
+
+  const markedCount = markedNumbers.size;
 
   const levelProgress =
     xp % XP_PER_LEVEL;
@@ -201,19 +200,40 @@ export default function BingoGameScreen() {
   const progressPercentage =
     (levelProgress / XP_PER_LEVEL) * 100;
 
-  const missionProgress =
-    Math.min(
-      bingosCompleted,
-      MISSION_TARGET,
-    );
+  const missionProgress = Math.min(
+    bingosCompleted,
+    MISSION_TARGET,
+  );
 
   const missionPercentage =
-    (missionProgress /
-      MISSION_TARGET) *
-    100;
+    (missionProgress / MISSION_TARGET) * 100;
 
   const missionCompleted =
     bingosCompleted >= MISSION_TARGET;
+
+  const villageLevel =
+    Math.floor(
+      villageBingos /
+        VILLAGE_BINGOS_PER_LEVEL,
+    ) + 1;
+
+  const villageProgress =
+    villageBingos %
+    VILLAGE_BINGOS_PER_LEVEL;
+
+  const villagePercentage =
+    (villageProgress /
+      VILLAGE_BINGOS_PER_LEVEL) *
+    100;
+
+  const villageBingosNeeded =
+    VILLAGE_BINGOS_PER_LEVEL -
+    villageProgress;
+
+  const recentNumbers =
+    drawnNumbers
+      .slice(-HISTORY_LIMIT)
+      .reverse();
 
   const awardVictory = (
     nextMarkedNumbers: Set<number>,
@@ -223,51 +243,43 @@ export default function BingoGameScreen() {
 
     if (!rewardGiven) {
       setChips(
-        (current) =>
-          current + WIN_REWARD,
+        (current) => current + WIN_REWARD,
       );
 
-      setXp(
-        (currentXp) => {
-          const updatedXp =
-            currentXp + WIN_XP;
+      setXp((currentXp) => {
+        const updatedXp =
+          currentXp + WIN_XP;
 
-          const nextLevel =
-            Math.floor(
-              updatedXp /
-                XP_PER_LEVEL,
-            ) + 1;
+        const nextLevel =
+          Math.floor(
+            updatedXp / XP_PER_LEVEL,
+          ) + 1;
 
-          setLevel(nextLevel);
+        setLevel(nextLevel);
 
-          return updatedXp;
-        },
-      );
+        return updatedXp;
+      });
 
       setBingosCompleted(
-        (current) => {
-          const updated =
-            current + 1;
-
-          if (
-            updated >=
-              MISSION_TARGET &&
-            !missionRewardGiven
-          ) {
-            setChips(
-              (currentChips) =>
-                currentChips +
-                MISSION_REWARD,
-            );
-
-            setMissionRewardGiven(
-              true,
-            );
-          }
-
-          return updated;
-        },
+        (current) => current + 1,
       );
+
+      setVillageBingos(
+        (current) => current + 1,
+      );
+
+      if (
+        bingosCompleted + 1 >=
+          MISSION_TARGET &&
+        !missionRewardGiven
+      ) {
+        setChips(
+          (current) =>
+            current + MISSION_REWARD,
+        );
+
+        setMissionRewardGiven(true);
+      }
 
       setRewardGiven(true);
     }
@@ -276,25 +288,59 @@ export default function BingoGameScreen() {
   const handleNumberPress = (
     number: number,
   ) => {
-    if (
-      number === 0 ||
-      hasWon
-    ) {
+    if (number === 0 || hasWon) {
       return;
     }
 
-    setMarkedNumbers(
-      (current) => {
-        const next =
-          new Set(current);
+    setMarkedNumbers((current) => {
+      const next = new Set(current);
 
-        if (
-          next.has(number)
-        ) {
-          next.delete(number);
-        } else {
-          next.add(number);
-        }
+      if (next.has(number)) {
+        next.delete(number);
+      } else {
+        next.add(number);
+      }
+
+      if (
+        hasHorizontalBingo(
+          cardNumbers,
+          next,
+        )
+      ) {
+        awardVictory(next);
+      }
+
+      return next;
+    });
+  };
+
+  const handleNextNumber = () => {
+    if (hasWon) {
+      return;
+    }
+
+    const nextNumber =
+      getNextNumber(drawnNumbers);
+
+    if (nextNumber === null) {
+      return;
+    }
+
+    setDrawnNumber(nextNumber);
+
+    setDrawnNumbers((current) => [
+      ...current,
+      nextNumber,
+    ]);
+
+    if (
+      autoMark &&
+      cardNumbers.includes(nextNumber)
+    ) {
+      setMarkedNumbers((current) => {
+        const next = new Set(current);
+
+        next.add(nextNumber);
 
         if (
           hasHorizontalBingo(
@@ -306,60 +352,7 @@ export default function BingoGameScreen() {
         }
 
         return next;
-      },
-    );
-  };
-
-  const handleNextNumber = () => {
-    if (hasWon) {
-      return;
-    }
-
-    const nextNumber =
-      getNextNumber(
-        drawnNumbers,
-      );
-
-    if (nextNumber === null) {
-      return;
-    }
-
-    setDrawnNumber(
-      nextNumber,
-    );
-
-    setDrawnNumbers(
-      (current) => [
-        ...current,
-        nextNumber,
-      ],
-    );
-
-    if (
-      autoMark &&
-      cardNumbers.includes(
-        nextNumber,
-      )
-    ) {
-      setMarkedNumbers(
-        (current) => {
-          const next =
-            new Set(current);
-
-          next.add(nextNumber);
-
-          if (
-            hasHorizontalBingo(
-              cardNumbers,
-              next,
-            )
-          ) {
-            awardVictory(next);
-          }
-
-          return next;
-        },
-      );
+      });
     }
   };
 
@@ -368,36 +361,26 @@ export default function BingoGameScreen() {
       return;
     }
 
-    setAutoMark(
-      (current) => !current,
-    );
+    setAutoMark((current) => !current);
   };
 
   const handlePlayAgain = () => {
-    setCardNumbers(
-      createBingoCard(),
-    );
-
+    setCardNumbers(createBingoCard());
     setDrawnNumber(null);
     setDrawnNumbers([]);
-    setMarkedNumbers(
-      new Set(),
-    );
-
+    setMarkedNumbers(new Set());
     setAutoMark(true);
     setHasWon(false);
     setRewardGiven(false);
+    setShowFullHistory(false);
   };
 
   const isFinished =
     drawnNumbers.length >= 75;
 
-  const currentLetter =
-    drawnNumber
-      ? getBingoLetter(
-          drawnNumber,
-        )
-      : '—';
+  const currentLetter = drawnNumber
+    ? getBingoLetter(drawnNumber)
+    : '—';
 
   let drawMessage =
     'Toque em PRÓXIMO NÚMERO para começar';
@@ -408,26 +391,18 @@ export default function BingoGameScreen() {
   } else if (isFinished) {
     drawMessage =
       'Todos os números foram sorteados!';
-  } else if (
-    drawnNumber !== null
-  ) {
+  } else if (drawnNumber !== null) {
     const isNumberMarked =
-      markedNumbers.has(
-        drawnNumber,
-      );
+      markedNumbers.has(drawnNumber);
 
     if (isNumberMarked) {
-      drawMessage =
-        'Número marcado!';
+      drawMessage = 'Número marcado!';
     } else if (
-      cardNumbers.includes(
-        drawnNumber,
-      )
+      cardNumbers.includes(drawnNumber)
     ) {
-      drawMessage =
-        autoMark
-          ? 'Número encontrado na sua cartela!'
-          : 'Toque no número para marcar';
+      drawMessage = autoMark
+        ? 'Número encontrado na sua cartela!'
+        : 'Toque no número para marcar';
     } else {
       drawMessage =
         'Boa! Vamos para o próximo.';
@@ -435,133 +410,57 @@ export default function BingoGameScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={
-        styles.safeArea
-      }
-    >
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={
-          styles.scrollContent
-        }
-        showsVerticalScrollIndicator={
-          false
-        }
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* TOPO */}
-        <View
-          style={styles.topBar}
-        >
-          <Pressable
-            style={
-              styles.backButton
-            }
-          >
-            <Text
-              style={
-                styles.backButtonText
-              }
-            >
-              ‹
-            </Text>
+        <View style={styles.topBar}>
+          <Pressable style={styles.backButton}>
+            <Text style={styles.backButtonText}>‹</Text>
           </Pressable>
 
-          <View
-            style={
-              styles.topCenter
-            }
-          >
-            <Text
-              style={
-                styles.topTitle
-              }
-            >
+          <View style={styles.topCenter}>
+            <Text style={styles.topTitle}>
               VILA TROPICAL
             </Text>
 
-            <Text
-              style={
-                styles.topSubtitle
-              }
-            >
+            <Text style={styles.topSubtitle}>
               PARTIDA
             </Text>
           </View>
 
-          <View
-            style={
-              styles.chipBadge
-            }
-          >
-            <Text
-              style={
-                styles.chipIcon
-              }
-            >
-              ●
-            </Text>
+          <View style={styles.chipBadge}>
+            <Text style={styles.chipIcon}>●</Text>
 
-            <Text
-              style={
-                styles.chipValue
-              }
-            >
-              {chips.toLocaleString(
-                'pt-BR',
-              )}
+            <Text style={styles.chipValue}>
+              {chips.toLocaleString('pt-BR')}
             </Text>
           </View>
         </View>
 
         {/* PROGRESSO */}
-        <View
-          style={
-            styles.progressCard
-          }
-        >
-          <View
-            style={
-              styles.progressTop
-            }
-          >
+        <View style={styles.progressCard}>
+          <View style={styles.progressTop}>
             <View>
-              <Text
-                style={
-                  styles.progressLabel
-                }
-              >
+              <Text style={styles.progressLabel}>
                 SEU PROGRESSO
               </Text>
 
-              <Text
-                style={
-                  styles.levelTitle
-                }
-              >
+              <Text style={styles.levelTitle}>
                 NÍVEL {level}
               </Text>
             </View>
 
-            <View
-              style={
-                styles.xpBadge
-              }
-            >
-              <Text
-                style={
-                  styles.xpBadgeText
-                }
-              >
+            <View style={styles.xpBadge}>
+              <Text style={styles.xpBadgeText}>
                 {levelProgress} / 100 XP
               </Text>
             </View>
           </View>
 
-          <View
-            style={
-              styles.xpTrack
-            }
-          >
+          <View style={styles.xpTrack}>
             <View
               style={[
                 styles.xpFill,
@@ -572,27 +471,14 @@ export default function BingoGameScreen() {
             />
           </View>
 
-          <View
-            style={
-              styles.xpBottom
-            }
-          >
-            <Text
-              style={
-                styles.xpCurrent
-              }
-            >
+          <View style={styles.xpBottom}>
+            <Text style={styles.xpCurrent}>
               XP ATUAL: {xp}
             </Text>
 
-            <Text
-              style={
-                styles.progressHint
-              }
-            >
+            <Text style={styles.progressHint}>
               Mais{' '}
-              {XP_PER_LEVEL -
-                levelProgress}{' '}
+              {XP_PER_LEVEL - levelProgress}{' '}
               XP para o próximo nível
             </Text>
           </View>
@@ -613,43 +499,21 @@ export default function BingoGameScreen() {
                 styles.missionIconCompleted,
             ]}
           >
-            <Text
-              style={
-                styles.missionIconText
-              }
-            >
-              {missionCompleted
-                ? '✓'
-                : '★'}
+            <Text style={styles.missionIconText}>
+              {missionCompleted ? '✓' : '★'}
             </Text>
           </View>
 
-          <View
-            style={
-              styles.missionContent
-            }
-          >
-            <Text
-              style={
-                styles.missionLabel
-              }
-            >
+          <View style={styles.missionContent}>
+            <Text style={styles.missionLabel}>
               DESAFIO DA VILA
             </Text>
 
-            <Text
-              style={
-                styles.missionTitle
-              }
-            >
+            <Text style={styles.missionTitle}>
               Faça 3 Bingos
             </Text>
 
-            <View
-              style={
-                styles.missionTrack
-              }
-            >
+            <View style={styles.missionTrack}>
               <View
                 style={[
                   styles.missionFill,
@@ -660,148 +524,141 @@ export default function BingoGameScreen() {
               />
             </View>
 
-            <Text
-              style={
-                styles.missionProgressText
-              }
-            >
-              {missionProgress} /{' '}
-              {MISSION_TARGET}{' '}
+            <Text style={styles.missionProgressText}>
+              {missionProgress} / {MISSION_TARGET}{' '}
               Bingos
             </Text>
           </View>
 
-          <View
-            style={
-              styles.missionReward
-            }
-          >
-            <Text
-              style={
-                styles.missionRewardLabel
-              }
-            >
+          <View style={styles.missionReward}>
+            <Text style={styles.missionRewardLabel}>
               RECOMPENSA
             </Text>
 
-            <Text
-              style={
-                styles.missionRewardValue
-              }
-            >
+            <Text style={styles.missionRewardValue}>
               {missionCompleted
                 ? 'CONCLUÍDO'
                 : `+${MISSION_REWARD}`}
             </Text>
 
             {!missionCompleted && (
-              <Text
-                style={
-                  styles.missionRewardSub
-                }
-              >
+              <Text style={styles.missionRewardSub}>
                 fichas
               </Text>
             )}
           </View>
         </View>
 
+        {/* EVOLUÇÃO DA VILA */}
+        <View style={styles.villageCard}>
+          <View style={styles.villageIcon}>
+            <Text style={styles.villageIconText}>
+              🌴
+            </Text>
+          </View>
+
+          <View style={styles.villageContent}>
+            <View style={styles.villageHeader}>
+              <View>
+                <Text style={styles.villageLabel}>
+                  VILA TROPICAL
+                </Text>
+
+                <Text style={styles.villageTitle}>
+                  NÍVEL {villageLevel}
+                </Text>
+              </View>
+
+              <View
+                style={styles.villageBingoBadge}
+              >
+                <Text
+                  style={
+                    styles.villageBingoBadgeText
+                  }
+                >
+                  {villageBingos} BINGOS
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.villageTrack}>
+              <View
+                style={[
+                  styles.villageFill,
+                  {
+                    width: `${villagePercentage}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.villageBottom}>
+              <Text
+                style={styles.villageProgressText}
+              >
+                {villageProgress} /{' '}
+                {VILLAGE_BINGOS_PER_LEVEL}
+              </Text>
+
+              <Text style={styles.villageHint}>
+                {villageBingosNeeded}{' '}
+                {villageBingosNeeded === 1
+                  ? 'Bingo'
+                  : 'Bingos'}{' '}
+                para avançar
+              </Text>
+            </View>
+          </View>
+        </View>
+
         {/* STATUS */}
-        <View
-          style={
-            styles.statusRow
-          }
-        >
-          <View
-            style={
-              styles.statusCard
-            }
-          >
-            <Text
-              style={
-                styles.statusLabel
-              }
-            >
+        <View style={styles.statusRow}>
+          <View style={styles.statusCard}>
+            <Text style={styles.statusLabel}>
               PARTIDA
             </Text>
 
-            <Text
-              style={
-                styles.statusValue
-              }
-            >
+            <Text style={styles.statusValue}>
               #001
             </Text>
           </View>
 
-          <View
-            style={
-              styles.statusCard
-            }
-          >
-            <Text
-              style={
-                styles.statusLabel
-              }
-            >
+          <View style={styles.statusCard}>
+            <Text style={styles.statusLabel}>
               SORTEADOS
             </Text>
 
-            <Text
-              style={
-                styles.statusValue
-              }
-            >
+            <Text style={styles.statusValue}>
               {drawnNumbers.length}
             </Text>
           </View>
 
-          <View
-            style={
-              styles.statusCard
-            }
-          >
-            <Text
-              style={
-                styles.statusLabel
-              }
-            >
+          <View style={styles.statusCard}>
+            <Text style={styles.statusLabel}>
               NÍVEL
             </Text>
 
-            <Text
-              style={
-                styles.statusValue
-              }
-            >
+            <Text style={styles.statusValue}>
               {level}
             </Text>
           </View>
         </View>
 
-        {/* NÚMERO / RESULTADO */}
+        {/* NÚMERO */}
         <View
           style={[
             styles.drawSection,
-            hasWon &&
-              styles.drawSectionWon,
+            hasWon && styles.drawSectionWon,
           ]}
         >
-          <Text
-            style={
-              styles.drawLabel
-            }
-          >
+          <Text style={styles.drawLabel}>
             {hasWon
               ? 'RESULTADO DA PARTIDA'
               : 'ÚLTIMO NÚMERO'}
           </Text>
 
-          <View
-            style={
-              styles.ballRow
-            }
-          >
+          <View style={styles.ballRow}>
             <View
               style={[
                 styles.bingoBall,
@@ -816,14 +673,8 @@ export default function BingoGameScreen() {
                     styles.ballInnerWon,
                 ]}
               >
-                <Text
-                  style={
-                    styles.ballLetter
-                  }
-                >
-                  {hasWon
-                    ? '★'
-                    : currentLetter}
+                <Text style={styles.ballLetter}>
+                  {hasWon ? '★' : currentLetter}
                 </Text>
 
                 <Text
@@ -835,8 +686,7 @@ export default function BingoGameScreen() {
                 >
                   {hasWon
                     ? 'BINGO!'
-                    : drawnNumber ??
-                      '—'}
+                    : drawnNumber ?? '—'}
                 </Text>
               </View>
             </View>
@@ -853,135 +703,181 @@ export default function BingoGameScreen() {
           </Text>
         </View>
 
-        {/* CELEBRAÇÃO */}
-        {hasWon && (
-          <View
-            style={
-              styles.victoryCard
-            }
-          >
-            <View
-              style={
-                styles.confettiRow
-              }
-            >
-              <Text
-                style={
-                  styles.confetti
-                }
-              >
-                ✦
-              </Text>
+        {/* HISTÓRICO DOS ÚLTIMOS 5 */}
+        {recentNumbers.length > 0 && (
+          <View style={styles.historyCard}>
+            <View style={styles.historyHeader}>
+              <View>
+                <Text style={styles.historyTitle}>
+                  ÚLTIMOS SORTEADOS
+                </Text>
 
-              <Text
-                style={
-                  styles.confetti
-                }
-              >
-                ★
-              </Text>
+                <Text style={styles.historySubtitle}>
+                  Os 5 números mais recentes
+                </Text>
+              </View>
 
-              <Text
-                style={
-                  styles.confetti
+              <Pressable
+                onPress={() =>
+                  setShowFullHistory(
+                    (current) => !current,
+                  )
                 }
+                style={styles.historyButton}
               >
-                ✦
-              </Text>
-
-              <Text
-                style={
-                  styles.confetti
-                }
-              >
-                ★
-              </Text>
-
-              <Text
-                style={
-                  styles.confetti
-                }
-              >
-                ✦
-              </Text>
+                <Text style={styles.historyButtonText}>
+                  {showFullHistory
+                    ? 'FECHAR'
+                    : 'VER TODOS'}
+                </Text>
+              </Pressable>
             </View>
 
-            <Text
-              style={
-                styles.victoryTitle
-              }
-            >
+            <View style={styles.historyNumbers}>
+              {recentNumbers.map(
+                (number, index) => (
+                  <View
+                    key={`${number}-${index}`}
+                    style={[
+                      styles.historyBall,
+                      index === 0 &&
+                        styles.historyBallLatest,
+                    ]}
+                  >
+                    <Text
+                      style={styles.historyLetter}
+                    >
+                      {getBingoLetter(number)}
+                    </Text>
+
+                    <Text
+                      style={styles.historyNumber}
+                    >
+                      {number}
+                    </Text>
+                  </View>
+                ),
+              )}
+            </View>
+
+            {showFullHistory && (
+              <View style={styles.fullHistoryPanel}>
+                <View
+                  style={
+                    styles.fullHistoryHeader
+                  }
+                >
+                  <Text
+                    style={
+                      styles.fullHistoryTitle
+                    }
+                  >
+                    TODOS OS SORTEADOS
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.fullHistoryCount
+                    }
+                  >
+                    {drawnNumbers.length} / 75
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.fullHistoryGrid
+                  }
+                >
+                  {drawnNumbers.map(
+                    (number, index) => (
+                      <View
+                        key={`${number}-${index}`}
+                        style={[
+                          styles.fullHistoryItem,
+                          index ===
+                            drawnNumbers.length -
+                              1 &&
+                            styles.fullHistoryLatest,
+                        ]}
+                      >
+                        <Text
+                          style={
+                            styles.fullHistoryOrder
+                          }
+                        >
+                          #{index + 1}
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.fullHistoryLetter
+                          }
+                        >
+                          {getBingoLetter(
+                            number,
+                          )}
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.fullHistoryNumber
+                          }
+                        >
+                          {number}
+                        </Text>
+                      </View>
+                    ),
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* CELEBRAÇÃO */}
+        {hasWon && (
+          <View style={styles.victoryCard}>
+            <View style={styles.confettiRow}>
+              <Text style={styles.confetti}>✦</Text>
+              <Text style={styles.confetti}>★</Text>
+              <Text style={styles.confetti}>✦</Text>
+              <Text style={styles.confetti}>★</Text>
+              <Text style={styles.confetti}>✦</Text>
+            </View>
+
+            <Text style={styles.victoryTitle}>
               BINGO!
             </Text>
 
-            <Text
-              style={
-                styles.victorySubtitle
-              }
-            >
+            <Text style={styles.victorySubtitle}>
               Você completou uma linha!
             </Text>
 
-            <View
-              style={
-                styles.rewardCard
-              }
-            >
-              <View
-                style={
-                  styles.rewardIcon
-                }
-              >
-                <Text
-                  style={
-                    styles.rewardIconText
-                  }
-                >
+            <View style={styles.rewardCard}>
+              <View style={styles.rewardIcon}>
+                <Text style={styles.rewardIconText}>
                   +
                 </Text>
               </View>
 
-              <View
-                style={
-                  styles.rewardContent
-                }
-              >
-                <Text
-                  style={
-                    styles.rewardLabel
-                  }
-                >
+              <View style={styles.rewardContent}>
+                <Text style={styles.rewardLabel}>
                   RECOMPENSA
                 </Text>
 
-                <Text
-                  style={
-                    styles.rewardValue
-                  }
-                >
+                <Text style={styles.rewardValue}>
                   +{WIN_REWARD} fichas
                 </Text>
               </View>
             </View>
 
-            <View
-              style={
-                styles.xpReward
-              }
-            >
-              <Text
-                style={
-                  styles.xpRewardText
-                }
-              >
+            <View style={styles.xpReward}>
+              <Text style={styles.xpRewardText}>
                 +{WIN_XP} XP
               </Text>
 
-              <Text
-                style={
-                  styles.xpRewardHint
-                }
-              >
+              <Text style={styles.xpRewardHint}>
                 Progresso salvo
               </Text>
             </View>
@@ -1010,11 +906,7 @@ export default function BingoGameScreen() {
               </View>
             )}
 
-            <Text
-              style={
-                styles.victoryMessage
-              }
-            >
+            <Text style={styles.victoryMessage}>
               Bianca e Bob estão
               comemorando com você!
             </Text>
@@ -1022,30 +914,14 @@ export default function BingoGameScreen() {
         )}
 
         {/* CARTELA */}
-        <View
-          style={
-            styles.cardSection
-          }
-        >
-          <View
-            style={
-              styles.cardHeader
-            }
-          >
+        <View style={styles.cardSection}>
+          <View style={styles.cardHeader}>
             <View>
-              <Text
-                style={
-                  styles.cardTitle
-                }
-              >
+              <Text style={styles.cardTitle}>
                 SUA CARTELA
               </Text>
 
-              <Text
-                style={
-                  styles.cardSubtitle
-                }
-              >
+              <Text style={styles.cardSubtitle}>
                 {hasWon
                   ? 'Linha vencedora destacada'
                   : 'Toque em um número para marcar'}
@@ -1059,11 +935,7 @@ export default function BingoGameScreen() {
                   styles.progressBadgeWon,
               ]}
             >
-              <Text
-                style={
-                  styles.progressText
-                }
-              >
+              <Text style={styles.progressText}>
                 {markedCount} / 24
               </Text>
             </View>
@@ -1076,24 +948,12 @@ export default function BingoGameScreen() {
                 styles.cardBoardWon,
             ]}
           >
-            <View
-              style={
-                styles.columnHeaderRow
-              }
-            >
-              {[
-                'B',
-                'I',
-                'N',
-                'G',
-                'O',
-              ].map(
+            <View style={styles.columnHeaderRow}>
+              {['B', 'I', 'N', 'G', 'O'].map(
                 (letter) => (
                   <View
                     key={letter}
-                    style={
-                      styles.columnHeader
-                    }
+                    style={styles.columnHeader}
                   >
                     <Text
                       style={
@@ -1107,16 +967,9 @@ export default function BingoGameScreen() {
               )}
             </View>
 
-            <View
-              style={
-                styles.numberGrid
-              }
-            >
+            <View style={styles.numberGrid}>
               {cardNumbers.map(
-                (
-                  number,
-                  index,
-                ) => {
+                (number, index) => {
                   const isFree =
                     number === 0;
 
@@ -1127,9 +980,7 @@ export default function BingoGameScreen() {
                     );
 
                   const row =
-                    Math.floor(
-                      index / 5,
-                    );
+                    Math.floor(index / 5);
 
                   const rowNumbers =
                     cardNumbers.slice(
@@ -1142,8 +993,7 @@ export default function BingoGameScreen() {
                     rowNumbers.every(
                       (rowNumber) => {
                         if (
-                          rowNumber ===
-                          0
+                          rowNumber === 0
                         ) {
                           return true;
                         }
@@ -1163,8 +1013,7 @@ export default function BingoGameScreen() {
                     >
                       <Pressable
                         disabled={
-                          isFree ||
-                          hasWon
+                          isFree || hasWon
                         }
                         onPress={() =>
                           handleNumberPress(
@@ -1229,11 +1078,7 @@ export default function BingoGameScreen() {
         </View>
 
         {/* MARCAÇÃO AUTOMÁTICA */}
-        <View
-          style={
-            styles.controls
-          }
-        >
+        <View style={styles.controls}>
           <Pressable
             disabled={hasWon}
             style={({ pressed }) => [
@@ -1244,9 +1089,7 @@ export default function BingoGameScreen() {
                 !hasWon &&
                 styles.pressed,
             ]}
-            onPress={
-              toggleAutoMark
-            }
+            onPress={toggleAutoMark}
           >
             <View
               style={[
@@ -1255,35 +1098,17 @@ export default function BingoGameScreen() {
                   styles.autoIconActive,
               ]}
             >
-              <Text
-                style={
-                  styles.autoIconText
-                }
-              >
-                {autoMark
-                  ? '✓'
-                  : '−'}
+              <Text style={styles.autoIconText}>
+                {autoMark ? '✓' : '−'}
               </Text>
             </View>
 
-            <View
-              style={
-                styles.autoContent
-              }
-            >
-              <Text
-                style={
-                  styles.autoTitle
-                }
-              >
+            <View style={styles.autoContent}>
+              <Text style={styles.autoTitle}>
                 MARCAÇÃO AUTOMÁTICA
               </Text>
 
-              <Text
-                style={
-                  styles.autoSubtitle
-                }
-              >
+              <Text style={styles.autoSubtitle}>
                 {hasWon
                   ? 'Partida encerrada'
                   : autoMark
@@ -1329,20 +1154,12 @@ export default function BingoGameScreen() {
                 styles.hostBubbleWon,
             ]}
           >
-            <Text
-              style={
-                styles.hostBubbleText
-              }
-            >
+            <Text style={styles.hostBubbleText}>
               B
             </Text>
           </View>
 
-          <View
-            style={
-              styles.hostMessage
-            }
-          >
+          <View style={styles.hostMessage}>
             <Text
               style={[
                 styles.hostName,
@@ -1353,11 +1170,7 @@ export default function BingoGameScreen() {
               Bianca + Bob
             </Text>
 
-            <Text
-              style={
-                styles.hostMessageText
-              }
-            >
+            <Text style={styles.hostMessageText}>
               {hasWon
                 ? missionCompleted
                   ? 'BINGO! E ainda concluímos o Desafio da Vila!'
@@ -1385,11 +1198,7 @@ export default function BingoGameScreen() {
                 styles.hostBubbleWon,
             ]}
           >
-            <Text
-              style={
-                styles.hostBubbleText
-              }
-            >
+            <Text style={styles.hostBubbleText}>
               B
             </Text>
           </View>
@@ -1398,39 +1207,25 @@ export default function BingoGameScreen() {
         {/* AÇÃO */}
         {hasWon ? (
           <Pressable
-            onPress={
-              handlePlayAgain
-            }
+            onPress={handlePlayAgain}
             style={({ pressed }) => [
               styles.playAgainButton,
               pressed &&
                 styles.pressed,
             ]}
           >
-            <Text
-              style={
-                styles.playAgainText
-              }
-            >
+            <Text style={styles.playAgainText}>
               JOGAR NOVAMENTE
             </Text>
 
-            <Text
-              style={
-                styles.nextButtonArrow
-              }
-            >
+            <Text style={styles.nextButtonArrow}>
               ›
             </Text>
           </Pressable>
         ) : (
           <Pressable
-            disabled={
-              isFinished
-            }
-            onPress={
-              handleNextNumber
-            }
+            disabled={isFinished}
+            onPress={handleNextNumber}
             style={({ pressed }) => [
               styles.nextButton,
               isFinished &&
@@ -1440,11 +1235,7 @@ export default function BingoGameScreen() {
                 styles.pressed,
             ]}
           >
-            <Text
-              style={
-                styles.nextButtonText
-              }
-            >
+            <Text style={styles.nextButtonText}>
               {isFinished
                 ? 'SORTEIO ENCERRADO'
                 : 'PRÓXIMO NÚMERO'}
@@ -1452,9 +1243,7 @@ export default function BingoGameScreen() {
 
             {!isFinished && (
               <Text
-                style={
-                  styles.nextButtonArrow
-                }
+                style={styles.nextButtonArrow}
               >
                 ›
               </Text>
@@ -1462,11 +1251,7 @@ export default function BingoGameScreen() {
           </Pressable>
         )}
 
-        <Text
-          style={
-            styles.footerHint
-          }
-        >
+        <Text style={styles.footerHint}>
           {hasWon
             ? 'Sua jornada continua no Bingo Brasil!'
             : `${drawnNumbers.length} de 75 números sorteados`}
@@ -1647,7 +1432,7 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 14,
   },
 
   missionCardCompleted: {
@@ -1748,28 +1533,104 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  missionCompleteReward: {
-    width: '100%',
-    marginTop: 10,
-    borderRadius: 14,
-    backgroundColor: '#123456',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+  villageCard: {
+    minHeight: 100,
+    borderRadius: 22,
+    backgroundColor: '#0A5C75',
+    borderWidth: 2,
+    borderColor: '#56D6D1',
+    padding: 13,
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 18,
   },
 
-  missionCompleteTitle: {
-    color: '#F6CA5F',
-    fontSize: 10,
+  villageIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#123E4B',
+    borderWidth: 1,
+    borderColor: '#77E1D9',
+    marginRight: 12,
+  },
+
+  villageIconText: {
+    fontSize: 24,
+  },
+
+  villageContent: {
+    flex: 1,
+  },
+
+  villageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  villageLabel: {
+    color: '#B9F0EC',
+    fontSize: 8,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 1.1,
   },
 
-  missionCompleteText: {
+  villageTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
-    marginTop: 3,
+    marginTop: 2,
+  },
+
+  villageBingoBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: '#082F3B',
+    borderWidth: 1,
+    borderColor: '#56D6D1',
+  },
+
+  villageBingoBadgeText: {
+    color: '#F6CA5F',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+
+  villageTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#083E50',
+    marginTop: 9,
+    overflow: 'hidden',
+  },
+
+  villageFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: '#F6CA5F',
+  },
+
+  villageBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 5,
+  },
+
+  villageProgressText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+
+  villageHint: {
+    color: '#B9F0EC',
+    fontSize: 8,
   },
 
   statusRow: {
@@ -1889,6 +1750,156 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  historyCard: {
+    borderRadius: 20,
+    backgroundColor: '#0D2342',
+    borderWidth: 1,
+    borderColor: '#315176',
+    padding: 13,
+    marginBottom: 18,
+  },
+
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 11,
+  },
+
+  historyTitle: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+
+  historySubtitle: {
+    color: '#6F92B0',
+    fontSize: 8,
+    marginTop: 3,
+  },
+
+  historyButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#123456',
+    borderWidth: 1,
+    borderColor: '#315176',
+  },
+
+  historyButtonText: {
+    color: '#A8EFEA',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+
+  historyNumbers: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  historyBall: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#315176',
+    marginHorizontal: 2,
+  },
+
+  historyBallLatest: {
+    backgroundColor: '#0A5C75',
+    borderColor: '#56D6D1',
+  },
+
+  historyLetter: {
+    color: '#79B8C7',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+
+  historyNumber: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+
+  fullHistoryPanel: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#21476F',
+  },
+
+  fullHistoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+
+  fullHistoryTitle: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+
+  fullHistoryCount: {
+    color: '#F6CA5F',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  fullHistoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+
+  fullHistoryItem: {
+    width: '19%',
+    minHeight: 54,
+    borderRadius: 12,
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#315176',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: '1.25%',
+    marginBottom: 7,
+  },
+
+  fullHistoryLatest: {
+    backgroundColor: '#0A5C75',
+    borderColor: '#56D6D1',
+  },
+
+  fullHistoryOrder: {
+    color: '#52758E',
+    fontSize: 6,
+    fontWeight: '800',
+  },
+
+  fullHistoryLetter: {
+    color: '#79B8C7',
+    fontSize: 7,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+
+  fullHistoryNumber: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+
   victoryCard: {
     borderRadius: 24,
     backgroundColor: '#0B6E58',
@@ -1996,6 +2007,30 @@ const styles = StyleSheet.create({
     color: '#82AAA9',
     fontSize: 9,
     fontWeight: '700',
+  },
+
+  missionCompleteReward: {
+    width: '100%',
+    marginTop: 10,
+    borderRadius: 14,
+    backgroundColor: '#123456',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+
+  missionCompleteTitle: {
+    color: '#F6CA5F',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  missionCompleteText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 3,
   },
 
   victoryMessage: {
