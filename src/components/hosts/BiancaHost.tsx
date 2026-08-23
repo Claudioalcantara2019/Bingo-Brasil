@@ -24,7 +24,8 @@ const styles = StyleSheet.create({
   },
 
   image: {
-    width: 285,
-    height: 330,
+    width: 315,
+    height: 345,
+    transform: [{ translateY: 0 }],
   },
 });
