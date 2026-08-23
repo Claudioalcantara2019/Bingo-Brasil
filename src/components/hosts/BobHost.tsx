@@ -1,4 +1,9 @@
-import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
+import {
+    Image,
+    StyleSheet,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 
 type BobHostProps = {
   source: any;
@@ -37,8 +42,8 @@ const styles = StyleSheet.create({
   },
 
   mobileImage: {
-    width: 132,
-    height: 198,
+    width: 120,
+    height: 180,
     transform: [{ translateY: 22 }],
   },
 });
