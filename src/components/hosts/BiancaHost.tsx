@@ -1,10 +1,14 @@
 import { Image, StyleSheet, View } from 'react-native';
 
-export default function BiancaHost() {
+type BiancaHostProps = {
+  source: any;
+};
+
+export default function BiancaHost({ source }: BiancaHostProps) {
   return (
     <View style={styles.container}>
       <Image
-        source={require('@/assets/images/REFERENCIA-MESTRE-BIANCA-BOB.png')}
+        source={source}
         style={styles.image}
         resizeMode="contain"
       />
@@ -20,6 +24,6 @@ const styles = StyleSheet.create({
 
   image: {
     width: 180,
-    height: 180,
+    height: 240,
   },
 });

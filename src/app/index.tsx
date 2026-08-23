@@ -7,6 +7,9 @@ import {
   View,
 } from 'react-native';
 
+import BiancaHost from '@/components/hosts/BiancaHost';
+import BobHost from '@/components/hosts/BobHost';
+
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -68,10 +71,11 @@ export default function HomeScreen() {
             torcerem com você.
           </Text>
 
+          {/* ANFITRIÕES */}
           <View style={styles.hostsPlaceholder}>
-            <View style={styles.hostBubble}>
-              <Text style={styles.hostInitial}>BIANCA</Text>
-            </View>
+            <BiancaHost
+              source={require('@/assets/images/REFERENCIA-MESTRE-BIANCA-BOB.png')}
+            />
 
             <View style={styles.hostCenter}>
               <Text style={styles.hostTitle}>Bianca + Bob</Text>
@@ -80,9 +84,9 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <View style={styles.hostBubble}>
-              <Text style={styles.hostInitial}>BOB</Text>
-            </View>
+            <BobHost
+              source={require('@/assets/images/REFERENCIA-MESTRE-BIANCA-BOB.png')}
+            />
           </View>
 
           {/* BOTÃO PRINCIPAL */}
@@ -113,7 +117,9 @@ export default function HomeScreen() {
             <View style={[styles.menuIcon, styles.menuIconGreen]}>
               <Text style={styles.menuIconText}>★</Text>
             </View>
+
             <Text style={styles.menuTitle}>Bônus Diário</Text>
+
             <Text style={styles.menuDescription}>
               Pegue suas fichas grátis
             </Text>
@@ -128,7 +134,9 @@ export default function HomeScreen() {
             <View style={[styles.menuIcon, styles.menuIconBlue]}>
               <Text style={styles.menuIconText}>♛</Text>
             </View>
+
             <Text style={styles.menuTitle}>Ranking</Text>
+
             <Text style={styles.menuDescription}>
               Veja sua posição
             </Text>
@@ -143,7 +151,9 @@ export default function HomeScreen() {
             <View style={[styles.menuIcon, styles.menuIconPurple]}>
               <Text style={styles.menuIconText}>●</Text>
             </View>
+
             <Text style={styles.menuTitle}>Coleções</Text>
+
             <Text style={styles.menuDescription}>
               Descubra o universo BB
             </Text>
@@ -158,7 +168,9 @@ export default function HomeScreen() {
             <View style={[styles.menuIcon, styles.menuIconGold]}>
               <Text style={styles.menuIconText}>⚙</Text>
             </View>
+
             <Text style={styles.menuTitle}>Configurações</Text>
+
             <Text style={styles.menuDescription}>
               Personalize o jogo
             </Text>
@@ -169,7 +181,11 @@ export default function HomeScreen() {
         <View style={styles.dailyCard}>
           <View style={styles.dailyLeft}>
             <Text style={styles.dailyTag}>HOJE</Text>
-            <Text style={styles.dailyTitle}>Desafio da Vila</Text>
+
+            <Text style={styles.dailyTitle}>
+              Desafio da Vila
+            </Text>
+
             <Text style={styles.dailyDescription}>
               Jogue uma partida e avance na sua jornada.
             </Text>
@@ -222,7 +238,7 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 130,
     backgroundColor: '#7B61FF',
-    opacity: 0.10,
+    opacity: 0.1,
   },
 
   header: {
@@ -382,23 +398,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
-  },
-
-  hostBubble: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F6CA5F',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-
-  hostInitial: {
-    color: '#09203C',
-    fontSize: 10,
-    fontWeight: '900',
   },
 
   hostCenter: {
