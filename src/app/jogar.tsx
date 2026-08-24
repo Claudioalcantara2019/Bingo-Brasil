@@ -13,6 +13,10 @@ import {
   createBingoCard as createGeneratedBingoCard,
 } from '../game/cardGenerator';
 
+import {
+  calculatePrizePool,
+} from '../game/prizeEngine';
+
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
 const WIN_XP = 50;
@@ -254,6 +258,14 @@ export default function BingoGameScreen() {
 
   const markedCount =
     markedNumbers.size;
+
+  const virtualEntryValue =
+    25;
+
+  const virtualPrizePoolPreview =
+    calculatePrizePool(
+      virtualEntryValue,
+    );
 
   const levelProgress =
     xp % XP_PER_LEVEL;
@@ -1988,6 +2000,36 @@ const hitCardNumber =
                     }
                   >
                     {drawnNumbers.length}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🧮
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    POOL VIRTUAL
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    {virtualPrizePoolPreview}
                   </Text>
                 </View>
 
