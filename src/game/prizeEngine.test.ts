@@ -101,7 +101,6 @@ assert(
   'Bingo possui prêmio zero',
 );
 
-
 const oneTerno =
   resolvePrizeCategory(
     'terno',

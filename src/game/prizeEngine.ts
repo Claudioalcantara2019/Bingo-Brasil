@@ -110,6 +110,10 @@ export function getPrizeCategoryConfig(
   return CATEGORY_CONFIG[category];
 }
 
+/**
+ * Allocates an integer pool among weights that are intended to consume 100%
+ * of the supplied pool. Used for the round-level category allocation.
+ */
 function allocateIntegerPool(
   total: number,
   weights: number[],
@@ -171,13 +175,28 @@ function allocateIntegerPool(
 }
 
 /**
- * Removes duplicate users for a category.
- * A user may have several cards but can occupy
- * only one winner slot in the same category.
- *
- * The first occurrence is retained, preserving
- * server-confirmed ordering.
+ * Allocates only the occupied placement percentages.
+ * It intentionally does NOT redistribute the unused percentage,
+ * because that unused percentage is the residual/acumulado.
  */
+function allocatePlacementPool(
+  total: number,
+  weights: number[],
+): number[] {
+  const integerTotal =
+    Math.max(
+      0,
+      Math.floor(total),
+    );
+
+  return weights.map(
+    (weight) =>
+      Math.floor(
+        integerTotal * weight,
+      ),
+  );
+}
+
 export function uniqueUsers(
   candidates: WinnerCandidate[],
 ): WinnerCandidate[] {
@@ -210,19 +229,6 @@ export function uniqueUsers(
   return result;
 }
 
-/**
- * Resolves one category after a single ball event.
- *
- * For Terno/Quadra/Diagonal/Linha/Dupla:
- * only the first N unique users receive prizes.
- *
- * For Bingo:
- * all winners on that same ball are valid and
- * share the category pool equally.
- *
- * The same category pool is never paid twice.
- * Unpaid reserved value becomes residual.
- */
 export function resolvePrizeCategory(
   category: PrizeCategory,
   reservedPool: number,
@@ -238,26 +244,24 @@ export function resolvePrizeCategory(
       candidates,
     );
 
+  const integerPool =
+    Math.max(
+      0,
+      Math.floor(
+        reservedPool,
+      ),
+    );
+
   if (
     unique.length === 0
   ) {
     return {
       category,
       reservedPool:
-        Math.max(
-          0,
-          Math.floor(
-            reservedPool,
-          ),
-        ),
+        integerPool,
       paidPool: 0,
       residual:
-        Math.max(
-          0,
-          Math.floor(
-            reservedPool,
-          ),
-        ),
+        integerPool,
       winners: [],
     };
   }
@@ -275,14 +279,6 @@ export function resolvePrizeCategory(
         config.maxWinners,
       );
   }
-
-  const integerPool =
-    Math.max(
-      0,
-      Math.floor(
-        reservedPool,
-      ),
-    );
 
   if (
     winners.length === 0
@@ -307,39 +303,29 @@ export function resolvePrizeCategory(
           winners.length,
       );
 
-    let remainder =
+    const remainder =
       integerPool -
       baseShare *
         winners.length;
 
     const bingoWinners =
       winners.map(
-        (winner, index) => {
-          let prize =
-            baseShare;
-
-          /*
-           * If the pool cannot divide evenly,
-           * the remainder is assigned deterministically
-           * to the earliest server-confirmed winners.
-           */
-          if (
-            index <
-            remainder
-          ) {
-            prize += 1;
-          }
-
-          return {
-            userId:
-              winner.userId,
-            cardId:
-              winner.cardId,
-            place:
-              index + 1,
-            prize,
-          };
-        },
+        (winner, index) => ({
+          userId:
+            winner.userId,
+          cardId:
+            winner.cardId,
+          place:
+            index + 1,
+          prize:
+            baseShare +
+            (
+              index <
+              remainder
+                ? 1
+                : 0
+            ),
+        }),
       );
 
     return {
@@ -355,16 +341,9 @@ export function resolvePrizeCategory(
   }
 
   /*
-   * Para categorias com vagas limitadas, os pesos das posições
-   * representam o percentual definitivo do fundo reservado para
-   * cada colocação. Se não houver vencedor suficiente para ocupar
-   * todas as vagas, as posições vazias NÃO absorvem o dinheiro.
-   * O restante permanece como residual da sala.
-   *
-   * Exemplo com Terno e fundo 100:
-   * 1 vencedor -> recebe 30, residual 70
-   * 2 vencedores -> recebem 30 + 23, residual 47
-   * 5 vencedores -> todo o fundo é distribuído.
+   * Limited categories deliberately pay only the occupied positions.
+   * Example: Terno with 1 winner:
+   * 100 × 30% = 30 paid, 70 residual.
    */
   const occupiedWeights =
     config.placementWeights.slice(
@@ -373,7 +352,7 @@ export function resolvePrizeCategory(
     );
 
   const prizes =
-    allocateIntegerPool(
+    allocatePlacementPool(
       integerPool,
       occupiedWeights,
     );
@@ -412,17 +391,6 @@ export function resolvePrizeCategory(
   };
 }
 
-/**
- * Calculates the virtual prize pool for a round.
- *
- * Current design test:
- * 65% of the virtual gold used to enter
- * the round becomes the prize pool.
- *
- * This remains a parameter so the economic
- * engine can be calibrated later without
- * rewriting category logic.
- */
 export function calculatePrizePool(
   virtualGoldUsed: number,
   returnRate = 0.65,
@@ -436,12 +404,6 @@ export function calculatePrizePool(
   );
 }
 
-/**
- * Allocates the round prize pool among categories.
- * Largest-remainder allocation guarantees
- * the integer category totals add exactly to
- * the integer prize pool.
- */
 export function allocateCategoryPools(
   prizePool: number,
 ): Record<
