@@ -129,6 +129,17 @@ function getBingoLetter(number: number) {
   return 'O';
 }
 
+function hasFullCardBingo(
+  cardNumbers: number[],
+  markedNumbers: Set<number>,
+) {
+  return cardNumbers.every(
+    (number) =>
+      number === 0 ||
+      markedNumbers.has(number),
+  );
+}
+
 function hasHorizontalBingo(
   cardNumbers: number[],
   markedNumbers: Set<number>,
@@ -197,6 +208,13 @@ export default function BingoGameScreen() {
 
   const [chips, setChips] =
     useState(INITIAL_CHIPS);
+
+  const [bbDolinha, setBbDolinha] =
+    useState(0);
+
+  const [specialEventMessage, setSpecialEventMessage] =
+    useState('');
+
 
   const [xp, setXp] =
     useState(0);
@@ -469,7 +487,7 @@ const hitCardNumber =
         }
 
         if (
-          hasHorizontalBingo(
+          hasFullCardBingo(
             cardNumbers,
             next,
           )
@@ -480,6 +498,47 @@ const hitCardNumber =
         return next;
       },
     );
+  };
+
+  const getBombAffectedIndexes = (
+    cellIndex: number,
+  ) => {
+    const row =
+      Math.floor(cellIndex / 5);
+
+    const column =
+      cellIndex % 5;
+
+    const affectedIndexes =
+      [cellIndex];
+
+    const candidates = [
+      row > 0
+        ? cellIndex - 5
+        : null,
+      row < 4
+        ? cellIndex + 5
+        : null,
+      column > 0
+        ? cellIndex - 1
+        : null,
+      column < 4
+        ? cellIndex + 1
+        : null,
+    ];
+
+    for (const candidate of candidates) {
+      if (
+        candidate !== null &&
+        cardNumbers[candidate] !== 0
+      ) {
+        affectedIndexes.push(
+          candidate,
+        );
+      }
+    }
+
+    return affectedIndexes;
   };
 
   const handleNextNumber = () => {
@@ -508,6 +567,62 @@ const hitCardNumber =
         nextNumber,
       ],
     );
+
+    const drawnCardIndex =
+      generatedCard.cells.findIndex(
+        (cell) =>
+          cell.number === nextNumber,
+      );
+
+    const isSystemBomb =
+      generatedCard.bombPositions.includes(
+        drawnCardIndex,
+      );
+
+    const isDolinha =
+      generatedCard.dolinhaPositions.includes(
+        drawnCardIndex,
+      );
+
+    setSpecialEventMessage('');
+
+    if (isDolinha) {
+      setBbDolinha(
+        (current) =>
+          current + 2,
+      );
+
+      setSpecialEventMessage(
+        '💵 +2 BB Dólinhas!',
+      );
+    }
+
+    let specialMarkedIndexes: number[] =
+      [];
+
+    if (isSystemBomb) {
+      specialMarkedIndexes =
+        getBombAffectedIndexes(
+          drawnCardIndex,
+        );
+
+      setSpecialEventMessage(
+        isDolinha
+          ? '💣 BOOM! +2 BB Dólinhas!'
+          : '💣 BOOM! A bombinha marcou os números vizinhos!',
+      );
+    }
+
+    const affectedNumbers =
+      specialMarkedIndexes
+        .map(
+          (index) =>
+            cardNumbers[index],
+        )
+        .filter(
+          (number) =>
+            number !== 0,
+        );
 
     const numberIsOnCard =
       cardNumbers.includes(nextNumber);
@@ -555,23 +670,40 @@ const hitCardNumber =
       }
     }
 
-    if (
+    const shouldAutoMarkDrawnNumber =
       autoMark &&
       cardNumbers.includes(
         nextNumber,
-      )
+      );
+
+    if (
+      shouldAutoMarkDrawnNumber ||
+      affectedNumbers.length > 0
     ) {
       setMarkedNumbers(
         (current) => {
           const next =
             new Set(current);
 
-          next.add(
-            nextNumber,
-          );
+          if (
+            shouldAutoMarkDrawnNumber
+          ) {
+            next.add(
+              nextNumber,
+            );
+          }
+
+          for (
+            const affectedNumber
+            of affectedNumbers
+          ) {
+            next.add(
+              affectedNumber,
+            );
+          }
 
           if (
-            hasHorizontalBingo(
+            hasFullCardBingo(
               cardNumbers,
               next,
             )
@@ -625,6 +757,10 @@ const hitCardNumber =
 
     setRewardGiven(false);
 
+    setBbDolinha(0);
+
+    setSpecialEventMessage('');
+
     setHitCombo(0);
 
     setBestHitCombo(0);
@@ -654,7 +790,7 @@ const hitCardNumber =
 
   if (hasWon) {
     drawMessage =
-      'Você completou uma linha!';
+      'Você completou a cartela inteira!';
   } else if (
     isFinished
   ) {
@@ -742,9 +878,14 @@ const hitCardNumber =
 
           <View
             style={
-              styles.chipBadge
+              styles.currencyGroup
             }
           >
+            <View
+              style={
+                styles.chipBadge
+              }
+            >
             <Text
               style={
                 styles.chipIcon
@@ -762,6 +903,29 @@ const hitCardNumber =
                 'pt-BR',
               )}
             </Text>
+          </View>
+
+          <View
+            style={
+              styles.dolinhaBadge
+            }
+          >
+            <Text
+              style={
+                styles.dolinhaBadgeIcon
+              }
+            >
+              💵
+            </Text>
+
+            <Text
+              style={
+                styles.dolinhaBadgeValue
+              }
+            >
+              {bbDolinha}
+            </Text>
+          </View>
           </View>
         </View>
 
@@ -1210,6 +1374,22 @@ const hitCardNumber =
           >
             {drawMessage}
           </Text>
+
+          {specialEventMessage !== '' && (
+            <View
+              style={
+                styles.specialEventCard
+              }
+            >
+              <Text
+                style={
+                  styles.specialEventText
+                }
+              >
+                {specialEventMessage}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* HISTÓRICO */}
@@ -1608,7 +1788,7 @@ const hitCardNumber =
                 styles.victorySubtitle
               }
             >
-              Você completou uma linha!
+              Você completou a cartela inteira!
             </Text>
 
             <View
@@ -1931,7 +2111,7 @@ const hitCardNumber =
                 }
               >
                 {hasWon
-                  ? 'Linha vencedora destacada'
+                  ? 'Cartela completa — BINGO!'
                   : 'Toque em um número para marcar'}
               </Text>
             </View>
@@ -2492,6 +2672,12 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
+  currencyGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
   chipBadge: {
     minWidth: 80,
     height: 40,
@@ -2513,6 +2699,30 @@ const styles = StyleSheet.create({
 
   chipValue: {
     color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+
+  dolinhaBadge: {
+    minWidth: 58,
+    height: 40,
+    paddingHorizontal: 9,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#315176',
+  },
+
+  dolinhaBadgeIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+
+  dolinhaBadgeValue: {
+    color: '#A9FFE0',
     fontSize: 12,
     fontWeight: '900',
   },
@@ -2923,6 +3133,23 @@ const styles = StyleSheet.create({
   drawMessageWon: {
     color: '#1BCB83',
     fontSize: 14,
+  },
+
+  specialEventCard: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#103C3B',
+    borderWidth: 1,
+    borderColor: '#1BCB83',
+  },
+
+  specialEventText: {
+    color: '#A9FFE0',
+    fontSize: 10,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 
   historyCard: {
