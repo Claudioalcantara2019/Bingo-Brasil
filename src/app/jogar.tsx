@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import {
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 
 import {
@@ -16,6 +16,10 @@ import {
 import {
   calculatePrizePool,
 } from '../game/prizeEngine';
+
+import {
+  evaluateCardPatterns,
+} from '../game/patternEngine';
 
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
@@ -133,45 +137,6 @@ function getBingoLetter(number: number) {
   return 'O';
 }
 
-function hasFullCardBingo(
-  cardNumbers: number[],
-  markedNumbers: Set<number>,
-) {
-  return cardNumbers.every(
-    (number) =>
-      number === 0 ||
-      markedNumbers.has(number),
-  );
-}
-
-function hasHorizontalBingo(
-  cardNumbers: number[],
-  markedNumbers: Set<number>,
-) {
-  for (let row = 0; row < 5; row += 1) {
-    const start = row * 5;
-
-    const rowNumbers = cardNumbers.slice(
-      start,
-      start + 5,
-    );
-
-    const complete = rowNumbers.every((number) => {
-      if (number === 0) {
-        return true;
-      }
-
-      return markedNumbers.has(number);
-    });
-
-    if (complete) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function createGeneratedCard(): BingoCard {
   return createGeneratedBingoCard(
     'common',
@@ -258,6 +223,12 @@ export default function BingoGameScreen() {
 
   const markedCount =
     markedNumbers.size;
+
+  const patternState =
+    evaluateCardPatterns(
+      cardNumbers,
+      markedNumbers,
+    );
 
   const virtualEntryValue =
     25;
@@ -349,7 +320,7 @@ export default function BingoGameScreen() {
 
   const almostBingo =
     !hasWon &&
-    bestRowProgress === 4;
+    patternState.linha.progress === 4;
 
   const latestCardNumber =
     drawnNumber !== null &&
@@ -498,11 +469,14 @@ const hitCardNumber =
           next.add(number);
         }
 
-        if (
-          hasFullCardBingo(
+        const patterns =
+          evaluateCardPatterns(
             cardNumbers,
             next,
-          )
+          );
+
+        if (
+          patterns.bingo.completed
         ) {
           awardVictory(next);
         }
@@ -714,11 +688,14 @@ const hitCardNumber =
             );
           }
 
-          if (
-            hasFullCardBingo(
+          const patterns =
+            evaluateCardPatterns(
               cardNumbers,
               next,
-            )
+            );
+
+          if (
+            patterns.bingo.completed
           ) {
             awardVictory(
               next,
@@ -2090,6 +2067,41 @@ const hitCardNumber =
                     }
                   >
                     24 / 24
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🏅
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    LINHAS
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    {
+                      patternState
+                        .linha
+                        .lineIndexes
+                        .length
+                    }
                   </Text>
                 </View>
 
