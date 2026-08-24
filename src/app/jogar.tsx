@@ -8,6 +8,11 @@ import {
   View,
 } from 'react-native';
 
+import {
+  BingoCard,
+  createBingoCard as createGeneratedBingoCard,
+} from '../game/cardGenerator';
+
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
 const WIN_XP = 50;
@@ -152,10 +157,25 @@ function hasHorizontalBingo(
   return false;
 }
 
+function createGeneratedCard(): BingoCard {
+  return createGeneratedBingoCard(
+    'common',
+  );
+}
+
 export default function BingoGameScreen() {
+  const [generatedCard, setGeneratedCard] =
+    useState<BingoCard>(
+      () =>
+        createGeneratedCard(),
+    );
+
   const [cardNumbers, setCardNumbers] =
     useState<number[]>(
-      () => createBingoCard(),
+      () =>
+        generatedCard.cells.map(
+          (cell) => cell.number,
+        ),
     );
 
   const [drawnNumber, setDrawnNumber] =
@@ -578,8 +598,17 @@ const hitCardNumber =
   };
 
   const handlePlayAgain = () => {
+    const nextCard =
+      createGeneratedCard();
+
+    setGeneratedCard(
+      nextCard,
+    );
+
     setCardNumbers(
-      createBingoCard(),
+      nextCard.cells.map(
+        (cell) => cell.number,
+      ),
     );
 
     setDrawnNumber(null);
@@ -2068,19 +2097,55 @@ const hitCardNumber =
                             </Text>
                           </>
                         ) : (
-                          <Text
-                            style={[
-                              styles.numberText,
-                              isMarked &&
-                                styles.markedText,
-                              isWinningRow &&
-                                styles.winningText,
-                              isAlmostWinningRow &&
-                                styles.almostWinningText,
-                            ]}
-                          >
-                            {number}
-                          </Text>
+                          <>
+                            <Text
+                              style={[
+                                styles.numberText,
+                                isMarked &&
+                                  styles.markedText,
+                                isWinningRow &&
+                                  styles.winningText,
+                                isAlmostWinningRow &&
+                                  styles.almostWinningText,
+                              ]}
+                            >
+                              {number}
+                            </Text>
+
+                            <View
+                              style={
+                                styles.specialSymbolRow
+                              }
+                            >
+                              {generatedCard.cells[
+                                index
+                              ].symbols.includes(
+                                'bomb',
+                              ) && (
+                                <Text
+                                  style={
+                                    styles.specialSymbol
+                                  }
+                                >
+                                  💣
+                                </Text>
+                              )}
+
+                              {generatedCard.cells[
+                                index
+                              ].symbols.includes(
+                                'dolinha',
+                              ) && (
+                                <Text
+                                  style={
+                                    styles.specialSymbol
+                                  }
+                                >
+                                  💵
+                                </Text>
+                              )}
+                            </View>
+                          </>
                         )}
                       </Pressable>
                     </View>
@@ -3533,6 +3598,20 @@ const styles = StyleSheet.create({
     color: '#0B2540',
     fontSize: 18,
     fontWeight: '900',
+  },
+
+  specialSymbolRow: {
+    minHeight: 15,
+    marginTop: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  specialSymbol: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginHorizontal: 1,
   },
 
   markedInner: {
