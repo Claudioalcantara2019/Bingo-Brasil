@@ -33,6 +33,9 @@ function buildValidLines(): number[][] {
   return lines;
 }
 
+const HORIZONTAL_LINE_INDEXES = [0, 1, 2, 3, 4];
+const DIAGONAL_LINE_INDEXES = [5, 6];
+
 function isMarked(
   cardNumbers: number[],
   markedNumbers: Set<number>,
@@ -59,6 +62,29 @@ function lineProgress(
         index,
       ),
   ).length;
+}
+
+function getCompletedLineIndexesByType(
+  cardNumbers: number[],
+  markedNumbers: Set<number>,
+  indexes: number[],
+): number[] {
+  const lines = buildValidLines();
+
+  return indexes
+    .map(
+      (lineIndex) =>
+        lineProgress(
+          cardNumbers,
+          markedNumbers,
+          lines[lineIndex] ?? [],
+        ) === 5
+          ? lineIndex
+          : -1,
+    )
+    .filter(
+      (index) => index >= 0,
+    );
 }
 
 export function getValidLineProgress(
@@ -215,11 +241,8 @@ export function detectLines(
   cardNumbers: number[],
   markedNumbers: Set<number>,
 ) {
-  const diagonalIndexes = [5, 6];
-  const horizontalIndexes = [0, 1, 2, 3, 4];
-
   const diagonals =
-    diagonalIndexes.map(
+    DIAGONAL_LINE_INDEXES.map(
       (index) =>
         detectSpecificLine(
           'linha-diagonal',
@@ -230,7 +253,7 @@ export function detectLines(
     );
 
   const horizontals =
-    horizontalIndexes.map(
+    HORIZONTAL_LINE_INDEXES.map(
       (index) =>
         detectSpecificLine(
           'linha-horizontal',
@@ -255,32 +278,34 @@ export function detectLineDouble(
   cardNumbers: number[],
   markedNumbers: Set<number>,
 ): PatternResult {
-  const completed =
-    getCompletedLineIndexes(
+  const completedHorizontalLines =
+    getCompletedLineIndexesByType(
       cardNumbers,
       markedNumbers,
+      HORIZONTAL_LINE_INDEXES,
     );
+
+  const lines =
+    buildValidLines();
 
   return {
     kind: 'linha-dupla',
     completed:
-      completed.length >= 2,
+      completedHorizontalLines.length >= 2,
     progress:
       Math.min(
-        completed.length,
+        completedHorizontalLines.length,
         2,
       ),
     lineIndexes:
-      completed.slice(0, 2),
+      completedHorizontalLines.slice(0, 2),
     winningIndexes:
-      completed.length >= 2
-        ? completed
+      completedHorizontalLines.length >= 2
+        ? completedHorizontalLines
             .slice(0, 2)
             .flatMap(
               (lineIndex) =>
-                buildValidLines()[
-                  lineIndex
-                ] ?? [],
+                lines[lineIndex] ?? [],
             )
         : [],
   };

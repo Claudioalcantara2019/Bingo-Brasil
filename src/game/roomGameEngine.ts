@@ -15,6 +15,11 @@ import type {
   GameFlowResult,
 } from './gameFlowEngine';
 
+import {
+  filterEligibleRoundWinners,
+  registerRoundWinners,
+} from './roundWinnerRegistry';
+
 export type RoomGameEventInput = {
   roomId: string;
   roundId: string;
@@ -49,6 +54,92 @@ export type RoomGameEventResult = {
     | GameFlowResult
     | null;
 };
+
+function filterRoundCandidates(
+  roundId: string,
+  candidates: RoundPatternCandidates,
+): RoundPatternCandidates {
+  return {
+    terno:
+      filterEligibleRoundWinners(
+        roundId,
+        'terno',
+        candidates.terno,
+      ),
+
+    quadra:
+      filterEligibleRoundWinners(
+        roundId,
+        'quadra',
+        candidates.quadra,
+      ),
+
+    diagonal:
+      filterEligibleRoundWinners(
+        roundId,
+        'diagonal',
+        candidates.diagonal,
+      ),
+
+    linha:
+      filterEligibleRoundWinners(
+        roundId,
+        'linha',
+        candidates.linha,
+      ),
+
+    dupla:
+      filterEligibleRoundWinners(
+        roundId,
+        'dupla',
+        candidates.dupla,
+      ),
+
+    bingo:
+      filterEligibleRoundWinners(
+        roundId,
+        'bingo',
+        candidates.bingo,
+      ),
+  };
+}
+
+function registerPaidRoundWinners(
+  roundId: string,
+  triggerNumber: number,
+  flow: GameFlowResult,
+) {
+  for (
+    const settlement of
+    flow.round.settlements
+  ) {
+    if (
+      settlement.status !==
+        'paid' &&
+      settlement.status !==
+        'already-paid'
+    ) {
+      continue;
+    }
+
+    const winners =
+      settlement.payouts.map(
+        (payout) => ({
+          userId:
+            payout.userId,
+          cardId:
+            payout.cardId,
+        }),
+      );
+
+    registerRoundWinners(
+      roundId,
+      settlement.category,
+      winners,
+      triggerNumber,
+    );
+  }
+}
 
 /**
  * Final domain gateway for a room event.
@@ -142,6 +233,12 @@ export function processRoomGameEvent(
     };
   }
 
+  const eligibleCandidates =
+    filterRoundCandidates(
+      input.roundId,
+      input.candidates,
+    );
+
   const flow =
     processGameEvent(
       {
@@ -154,9 +251,15 @@ export function processRoomGameEvent(
         accumulatedBB:
           input.accumulatedBB,
         candidates:
-          input.candidates,
+          eligibleCandidates,
       },
     );
+
+  registerPaidRoundWinners(
+    input.roundId,
+    input.triggerNumber,
+    flow,
+  );
 
   let nextState =
     state;

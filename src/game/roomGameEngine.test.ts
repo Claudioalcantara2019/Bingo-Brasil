@@ -124,7 +124,9 @@ assert(
 );
 
 assert(
-  first.flow?.round.settlements.some(
+  first.flow !== undefined &&
+    first.flow !== null &&
+    first.flow.round.settlements.some(
     (settlement) =>
       settlement.category ===
         'bingo' &&
@@ -199,6 +201,194 @@ assert(
     second.roundStatus ===
       'closed',
   'Sala/rodada fechadas deveriam bloquear nova bola',
+);
+
+/*
+ * Teste isolado da regra de vencedores múltiplos por categoria.
+ * Esta sala NÃO possui Bingo no primeiro evento, portanto permanece aberta.
+ */
+createRoom(
+  'ROOM-TERNOS',
+  5,
+);
+
+joinRoom(
+  'ROOM-TERNOS',
+  'A',
+  ['A1'],
+);
+
+joinRoom(
+  'ROOM-TERNOS',
+  'B',
+  ['B1'],
+);
+
+joinRoom(
+  'ROOM-TERNOS',
+  'C',
+  ['C1'],
+);
+
+joinRoom(
+  'ROOM-TERNOS',
+  'D',
+  ['D1'],
+);
+
+joinRoom(
+  'ROOM-TERNOS',
+  'E',
+  ['E1'],
+);
+
+const ternoStarted =
+  startRoomRound(
+    'ROOM-TERNOS',
+    'ROUND-TERNOS',
+  );
+
+assert(
+  ternoStarted.ok,
+  'Sala de Ternos não iniciou',
+);
+
+const firstTernoEvent =
+  processRoomGameEvent({
+    roomId:
+      'ROOM-TERNOS',
+    roundId:
+      'ROUND-TERNOS',
+    triggerNumber:
+      10,
+    virtualGoldUsed:
+      1000,
+    accumulatedBB:
+      12,
+    candidates: {
+      terno: [
+        {
+          userId:
+            'A',
+          cardId:
+            'A1',
+        },
+        {
+          userId:
+            'B',
+          cardId:
+            'B1',
+        },
+      ],
+      quadra: [],
+      diagonal: [],
+      linha: [],
+      dupla: [],
+      bingo: [],
+    },
+  });
+
+assert(
+  firstTernoEvent.ok &&
+    firstTernoEvent.flow !== null &&
+    firstTernoEvent.flow.round.settlements.some(
+      (settlement) =>
+        settlement.category ===
+          'terno',
+    ),
+  'Primeiro evento deveria registrar Terno',
+);
+
+/*
+ * As mesmas duas cartelas não podem ocupar novamente Terno.
+ */
+const repeatedTernoEvent =
+  processRoomGameEvent({
+    roomId:
+      'ROOM-TERNOS',
+    roundId:
+      'ROUND-TERNOS',
+    triggerNumber:
+      11,
+    virtualGoldUsed:
+      1000,
+    accumulatedBB:
+      12,
+    candidates: {
+      terno: [
+        {
+          userId:
+            'A',
+          cardId:
+            'A1',
+        },
+        {
+          userId:
+            'B',
+          cardId:
+            'B1',
+        },
+      ],
+      quadra: [],
+      diagonal: [],
+      linha: [],
+      dupla: [],
+      bingo: [],
+    },
+  });
+
+assert(
+  repeatedTernoEvent.ok &&
+    repeatedTernoEvent.flow !== null &&
+    repeatedTernoEvent.flow.round.settlements.every(
+      (settlement) =>
+        settlement.category !==
+        'terno',
+    ),
+  'Cartelas já premiadas não deveriam receber novo Terno',
+);
+
+/*
+ * Uma nova cartela ocupa a próxima vaga.
+ */
+const newTernoEvent =
+  processRoomGameEvent({
+    roomId:
+      'ROOM-TERNOS',
+    roundId:
+      'ROUND-TERNOS',
+    triggerNumber:
+      12,
+    virtualGoldUsed:
+      1000,
+    accumulatedBB:
+      12,
+    candidates: {
+      terno: [
+        {
+          userId:
+            'C',
+          cardId:
+            'C1',
+        },
+      ],
+      quadra: [],
+      diagonal: [],
+      linha: [],
+      dupla: [],
+      bingo: [],
+    },
+  });
+
+assert(
+  newTernoEvent.ok &&
+    newTernoEvent.flow !== null &&
+    newTernoEvent.flow.round.settlements.some(
+      (settlement) =>
+        settlement.category ===
+          'terno',
+    ),
+  'Nova cartela deveria ocupar a próxima vaga de Terno',
 );
 
 const wrongRoom =

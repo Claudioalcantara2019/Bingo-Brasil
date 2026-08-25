@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Pressable,
     SafeAreaView,
@@ -14,12 +14,18 @@ import {
 } from '../game/cardGenerator';
 
 import {
+  allocateCategoryPools,
   calculatePrizePool,
+  resolvePrizeCategory,
 } from '../game/prizeEngine';
 
 import {
   evaluateCardPatterns,
 } from '../game/patternEngine';
+
+import {
+  createUiRoomActions,
+} from '../game/uiRoomActions';
 
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
@@ -150,6 +156,38 @@ export default function BingoGameScreen() {
         createGeneratedCard(),
     );
 
+  const uiRoomActions =
+    useMemo(
+      () =>
+        createUiRoomActions(
+          'LOCAL-UI-ROOM',
+          1,
+        ),
+      [],
+    );
+
+  const [uiRoomRoundId] =
+    useState(
+      'LOCAL-UI-ROUND-1',
+    );
+
+  useEffect(
+    () => {
+      uiRoomActions.createRoom(1);
+      uiRoomActions.joinPlayer(
+        'LOCAL-PLAYER',
+        ['LOCAL-CARD'],
+      );
+      uiRoomActions.startRound(
+        uiRoomRoundId,
+      );
+    },
+    [
+      uiRoomActions,
+      uiRoomRoundId,
+    ],
+  );
+
   const [cardNumbers, setCardNumbers] =
     useState<number[]>(
       () =>
@@ -180,6 +218,55 @@ export default function BingoGameScreen() {
 
   const [bbDolinha, setBbDolinha] =
     useState(0);
+
+  const [roomAccumulatorGold, setRoomAccumulatorGold] =
+    useState(100);
+
+  const [roomAccumulatorBB, setRoomAccumulatorBB] =
+    useState(1);
+
+  const [patternAwards, setPatternAwards] =
+    useState({
+      terno: false,
+      quadra: false,
+      linha: false,
+      linhaDupla: false,
+      bingo: false,
+    });
+
+  const [patternPaid, setPatternPaid] =
+    useState({
+      terno: false,
+      quadra: false,
+      linha: false,
+      linhaDupla: false,
+      bingo: false,
+    });
+
+  const [settlementQueue, setSettlementQueue] =
+    useState<
+      {
+        id: string;
+        category:
+          | 'terno'
+          | 'quadra'
+          | 'linha'
+          | 'dupla'
+          | 'bingo';
+        status:
+          | 'eligible'
+          | 'paid';
+        number: number | null;
+      }[]
+    >([]);
+
+  const [latestAchievementMessage, setLatestAchievementMessage] =
+    useState('');
+
+  const [latestAchievementType, setLatestAchievementType] =
+    useState<
+      'normal' | 'special' | 'bingo'
+    >('normal');
 
   const [specialEventMessage, setSpecialEventMessage] =
     useState('');
@@ -224,6 +311,16 @@ export default function BingoGameScreen() {
   const markedCount =
     markedNumbers.size;
 
+  const fullCardProgress =
+    Math.min(
+      markedCount,
+      24,
+    );
+
+  const fullCardPercentage =
+    (fullCardProgress / 24) *
+    100;
+
   const patternState =
     evaluateCardPatterns(
       cardNumbers,
@@ -237,6 +334,196 @@ export default function BingoGameScreen() {
     calculatePrizePool(
       virtualEntryValue,
     );
+
+  const categoryPrizePools =
+    allocateCategoryPools(
+      virtualPrizePoolPreview,
+    );
+
+  const currentRoundResidualPreview =
+    Math.max(
+      0,
+      virtualPrizePoolPreview -
+        Object.values(
+          categoryPrizePools,
+        ).reduce(
+          (sum, value) =>
+            sum + value,
+          0,
+        ),
+    );
+
+  const simulatedAccumulatorGold =
+    roomAccumulatorGold +
+    Math.floor(
+      currentRoundResidualPreview * 0.99,
+    );
+
+  const simulatedAccumulatorBB =
+    roomAccumulatorBB +
+    currentRoundResidualPreview *
+      0.01;
+
+  const resolveLocalPreview = (
+    category:
+      | 'terno'
+      | 'quadra'
+      | 'linha'
+      | 'dupla'
+      | 'bingo',
+    pool: number,
+    completed: boolean,
+  ) => {
+    if (!completed) {
+      return {
+        winners: 0,
+        paid: 0,
+        remaining: Math.max(
+          0,
+          Math.floor(pool),
+        ),
+      };
+    }
+
+    const resolution =
+      resolvePrizeCategory(
+        category,
+        pool,
+        [
+          {
+            userId:
+              'LOCAL-PLAYER',
+            cardId:
+              'LOCAL-CARD',
+          },
+        ],
+      );
+
+    return {
+      winners:
+        resolution.winners.length,
+      paid:
+        resolution.winners[0]?.prize ??
+        0,
+      remaining:
+        Math.max(
+          0,
+          resolution.residual,
+        ),
+    };
+  };
+
+  const dynamicPrizePreview = {
+    terno:
+      resolveLocalPreview(
+        'terno',
+        categoryPrizePools.terno,
+        patternAwards.terno,
+      ),
+
+    quadra:
+      resolveLocalPreview(
+        'quadra',
+        categoryPrizePools.quadra,
+        patternAwards.quadra,
+      ),
+
+    linha:
+      resolveLocalPreview(
+        'linha',
+        categoryPrizePools.linha,
+        patternAwards.linha,
+      ),
+
+    dupla:
+      resolveLocalPreview(
+        'dupla',
+        categoryPrizePools.dupla,
+        patternAwards.linhaDupla,
+      ),
+
+    bingo:
+      resolveLocalPreview(
+        'bingo',
+        categoryPrizePools.bingo,
+        patternAwards.bingo,
+      ),
+  };
+
+  const dynamicRoundAccounting = {
+    reserved:
+      Object.values(
+        categoryPrizePools,
+      ).reduce(
+        (sum, value) =>
+          sum + value,
+        0,
+      ),
+
+    paidPreview:
+      dynamicPrizePreview.terno.paid +
+      dynamicPrizePreview.quadra.paid +
+      dynamicPrizePreview.linha.paid +
+      dynamicPrizePreview.dupla.paid +
+      dynamicPrizePreview.bingo.paid,
+
+    remaining:
+      dynamicPrizePreview.terno.remaining +
+      dynamicPrizePreview.quadra.remaining +
+      dynamicPrizePreview.linha.remaining +
+      dynamicPrizePreview.dupla.remaining +
+      dynamicPrizePreview.bingo.remaining,
+  };
+
+  const projectedAccumulatorGoldAfterRound =
+    roomAccumulatorGold +
+    Math.floor(
+      dynamicRoundAccounting.remaining *
+        0.99,
+    );
+
+  const projectedAccumulatorBBAfterRound =
+    roomAccumulatorBB +
+    dynamicRoundAccounting.remaining *
+      0.01;
+
+  const intermediatePrizePreview = {
+    terno: {
+      completed:
+        patternAwards.terno,
+      value:
+        categoryPrizePools.terno,
+    },
+    quadra: {
+      completed:
+        patternAwards.quadra,
+      value:
+        categoryPrizePools.quadra,
+    },
+    linha: {
+      completed:
+        patternAwards.linha,
+      value:
+        categoryPrizePools.linha,
+    },
+  };
+
+  const pendingSettlements =
+    settlementQueue.filter(
+      (event) =>
+        event.status ===
+        'eligible',
+    );
+
+  const paidSettlements =
+    settlementQueue.filter(
+      (event) =>
+        event.status ===
+        'paid',
+    );
+
+  const settlementCount =
+    settlementQueue.length;
 
   const levelProgress =
     xp % XP_PER_LEVEL;
@@ -694,6 +981,277 @@ const hitCardNumber =
               next,
             );
 
+          setPatternAwards(
+            (current) => ({
+              terno:
+                current.terno ||
+                patterns.terno.completed,
+              quadra:
+                current.quadra ||
+                patterns.quadra.completed,
+              linha:
+                current.linha ||
+                patterns.linha.completed,
+              linhaDupla:
+                current.linhaDupla ||
+                patterns.linhaDupla.completed,
+              bingo:
+                current.bingo ||
+                patterns.bingo.completed,
+            }),
+          );
+
+          const settlementCandidates = [
+            {
+              category:
+                'terno' as const,
+              completed:
+                patterns.terno.completed,
+            },
+            {
+              category:
+                'quadra' as const,
+              completed:
+                patterns.quadra.completed,
+            },
+            {
+              category:
+                'linha' as const,
+              completed:
+                patterns.linha.completed,
+            },
+            {
+              category:
+                'dupla' as const,
+              completed:
+                patterns.linhaDupla.completed,
+            },
+            {
+              category:
+                'bingo' as const,
+              completed:
+                patterns.bingo.completed,
+            },
+          ];
+
+          /*
+           * SHADOW MODE:
+           * O sorteio e a interface continuam usando a lógica local.
+           * Em paralelo, enviamos o mesmo evento para o núcleo interno.
+           */
+          uiRoomActions.processBall(
+            uiRoomRoundId,
+            nextNumber,
+            virtualEntryValue,
+            roomAccumulatorBB,
+            {
+              terno:
+                patterns.terno.completed
+                  ? [
+                      {
+                        userId:
+                          'LOCAL-PLAYER',
+                        cardId:
+                          'LOCAL-CARD',
+                      },
+                    ]
+                  : [],
+
+              quadra:
+                patterns.quadra.completed
+                  ? [
+                      {
+                        userId:
+                          'LOCAL-PLAYER',
+                        cardId:
+                          'LOCAL-CARD',
+                      },
+                    ]
+                  : [],
+
+              diagonal:
+                [],
+
+              linha:
+                patterns.linha.completed
+                  ? [
+                      {
+                        userId:
+                          'LOCAL-PLAYER',
+                        cardId:
+                          'LOCAL-CARD',
+                      },
+                    ]
+                  : [],
+
+              dupla:
+                patterns.linhaDupla.completed
+                  ? [
+                      {
+                        userId:
+                          'LOCAL-PLAYER',
+                        cardId:
+                          'LOCAL-CARD',
+                      },
+                    ]
+                  : [],
+
+              bingo:
+                patterns.bingo.completed
+                  ? [
+                      {
+                        userId:
+                          'LOCAL-PLAYER',
+                        cardId:
+                          'LOCAL-CARD',
+                      },
+                    ]
+                  : [],
+            },
+          );
+
+          for (
+            const candidate of
+            settlementCandidates
+          ) {
+            if (
+              !candidate.completed ||
+              patternAwards[
+                candidate.category ===
+                'dupla'
+                  ? 'linhaDupla'
+                  : candidate.category
+              ]
+            ) {
+              continue;
+            }
+
+            setSettlementQueue(
+              (current) => {
+                const alreadyExists =
+                  current.some(
+                    (event) =>
+                      event.category ===
+                        candidate.category &&
+                      event.number ===
+                        nextNumber,
+                  );
+
+                if (
+                  alreadyExists
+                ) {
+                  return current;
+                }
+
+                return [
+                  ...current,
+                  {
+                    id:
+                      `${candidate.category}-${nextNumber}-${Date.now()}`,
+                    category:
+                      candidate.category,
+                    status:
+                      'eligible',
+                    number:
+                      nextNumber,
+                  },
+                ];
+              },
+            );
+          }
+
+          setPatternPaid(
+            (current) => ({
+              terno:
+                current.terno ||
+                (
+                  patterns.terno.completed &&
+                  patternAwards.terno
+                ),
+              quadra:
+                current.quadra ||
+                (
+                  patterns.quadra.completed &&
+                  patternAwards.quadra
+                ),
+              linha:
+                current.linha ||
+                (
+                  patterns.linha.completed &&
+                  patternAwards.linha
+                ),
+              linhaDupla:
+                current.linhaDupla ||
+                (
+                  patterns.linhaDupla.completed &&
+                  patternAwards.linhaDupla
+                ),
+              bingo:
+                current.bingo ||
+                (
+                  patterns.bingo.completed &&
+                  patternAwards.bingo
+                ),
+            }),
+          );
+
+          if (
+            patterns.bingo.completed &&
+            !patternAwards.bingo
+          ) {
+            setLatestAchievementMessage(
+              '🏆 BINGO! CARTELA CHEIA!',
+            );
+
+            setLatestAchievementType(
+              'bingo',
+            );
+          } else if (
+            patterns.linhaDupla.completed &&
+            !patternAwards.linhaDupla
+          ) {
+            setLatestAchievementMessage(
+              '🔥 LINHA DUPLA!',
+            );
+
+            setLatestAchievementType(
+              'special',
+            );
+          } else if (
+            patterns.linha.completed &&
+            !patternAwards.linha
+          ) {
+            setLatestAchievementMessage(
+              '🏅 LINHA CONQUISTADA!',
+            );
+
+            setLatestAchievementType(
+              'special',
+            );
+          } else if (
+            patterns.quadra.completed &&
+            !patternAwards.quadra
+          ) {
+            setLatestAchievementMessage(
+              '🥈 QUADRA CONQUISTADA!',
+            );
+
+            setLatestAchievementType(
+              'normal',
+            );
+          } else if (
+            patterns.terno.completed &&
+            !patternAwards.terno
+          ) {
+            setLatestAchievementMessage(
+              '🥉 TERNO CONQUISTADO!',
+            );
+
+            setLatestAchievementType(
+              'normal',
+            );
+          }
+
           if (
             patterns.bingo.completed
           ) {
@@ -747,6 +1305,30 @@ const hitCardNumber =
     setRewardGiven(false);
 
     setBbDolinha(0);
+
+    setPatternAwards({
+      terno: false,
+      quadra: false,
+      linha: false,
+      linhaDupla: false,
+      bingo: false,
+    });
+
+    setPatternPaid({
+      terno: false,
+      quadra: false,
+      linha: false,
+      linhaDupla: false,
+      bingo: false,
+    });
+
+    setSettlementQueue([]);
+
+    setLatestAchievementMessage('');
+
+    setLatestAchievementType(
+      'normal',
+    );
 
     setSpecialEventMessage('');
 
@@ -1364,6 +1946,729 @@ const hitCardNumber =
             {drawMessage}
           </Text>
 
+          <View
+            style={
+              styles.prizePreviewCard
+            }
+          >
+            <Text
+              style={
+                styles.prizePreviewTitle
+              }
+            >
+              PRÉVIA DINÂMICA DA PREMIAÇÃO
+            </Text>
+
+            <Text
+              style={
+                styles.prizePreviewLiveNote
+              }
+            >
+              O painel muda quando cada conquista acontece.
+            </Text>
+
+            <View
+              style={
+                styles.roundAccountingCard
+              }
+            >
+              <View
+                style={
+                  styles.roundAccountingItem
+                }
+              >
+                <Text
+                  style={
+                    styles.roundAccountingLabel
+                  }
+                >
+                  FUNDO RESERVADO
+                </Text>
+
+                <Text
+                  style={
+                    styles.roundAccountingValue
+                  }
+                >
+                  {dynamicRoundAccounting.reserved}
+                </Text>
+              </View>
+
+              <View
+                style={
+                  styles.roundAccountingItem
+                }
+              >
+                <Text
+                  style={
+                    styles.roundAccountingLabel
+                  }
+                >
+                  PRÉVIA DISTRIBUÍDA
+                </Text>
+
+                <Text
+                  style={
+                    styles.roundAccountingValue
+                  }
+                >
+                  {dynamicRoundAccounting.paidPreview}
+                </Text>
+              </View>
+
+              <View
+                style={
+                  styles.roundAccountingItem
+                }
+              >
+                <Text
+                  style={
+                    styles.roundAccountingLabel
+                  }
+                >
+                  RESÍDUO PREVISTO
+                </Text>
+
+                <Text
+                  style={
+                    styles.roundAccountingValueHighlight
+                  }
+                >
+                  {dynamicRoundAccounting.remaining}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewHeaderRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewHeaderLabel
+                }
+              >
+                CATEGORIA
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewHeaderLabel
+                }
+              >
+                STATUS
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewHeaderLabel
+                }
+              >
+                RESTANTE
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewLabel
+                }
+              >
+                🥉 Terno
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewStatus
+                }
+              >
+                {dynamicPrizePreview.terno.winners}/5
+                {dynamicPrizePreview.terno.winners > 0 ? ' ✅' : ''}
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewValue
+                }
+              >
+                {dynamicPrizePreview.terno.remaining}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewSubRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewSubText
+                }
+              >
+                {dynamicPrizePreview.terno.paid > 0
+                  ? `conquista paga: ${dynamicPrizePreview.terno.paid}`
+                  : `fundo: ${categoryPrizePools.terno}`}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewLabel
+                }
+              >
+                🥈 Quadra
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewStatus
+                }
+              >
+                {dynamicPrizePreview.quadra.winners}/3
+                {dynamicPrizePreview.quadra.winners > 0 ? ' ✅' : ''}
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewValue
+                }
+              >
+                {dynamicPrizePreview.quadra.remaining}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewSubRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewSubText
+                }
+              >
+                {dynamicPrizePreview.quadra.paid > 0
+                  ? `conquista paga: ${dynamicPrizePreview.quadra.paid}`
+                  : `fundo: ${categoryPrizePools.quadra}`}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewLabel
+                }
+              >
+                🟡 Linha
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewStatus
+                }
+              >
+                {dynamicPrizePreview.linha.winners}/3
+                {dynamicPrizePreview.linha.winners > 0 ? ' ✅' : ''}
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewValue
+                }
+              >
+                {dynamicPrizePreview.linha.remaining}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewSubRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewSubText
+                }
+              >
+                {patternState.diagonais.some(
+                  (item) =>
+                    item.completed,
+                )
+                  ? 'linha diagonal'
+                  : 'linha horizontal ou válida'}
+                {' • '}
+                {dynamicPrizePreview.linha.paid > 0
+                  ? `conquista paga: ${dynamicPrizePreview.linha.paid}`
+                  : `fundo: ${categoryPrizePools.linha}`}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewLabel
+                }
+              >
+                🏆 Linha dupla
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewStatus
+                }
+              >
+                {dynamicPrizePreview.dupla.winners}/3
+                {dynamicPrizePreview.dupla.winners > 0 ? ' ✅' : ''}
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewValue
+                }
+              >
+                {dynamicPrizePreview.dupla.remaining}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewSubRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewSubText
+                }
+              >
+                {dynamicPrizePreview.dupla.paid > 0
+                  ? `conquista paga: ${dynamicPrizePreview.dupla.paid}`
+                  : `fundo: ${categoryPrizePools.dupla}`}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewRowBingo
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewLabelBingo
+                }
+              >
+                🎱 Bingo
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewStatusBingo
+                }
+              >
+                {dynamicPrizePreview.bingo.winners > 0
+                  ? `${dynamicPrizePreview.bingo.winners} vencedor(es)`
+                  : 'nenhum vencedor'}
+              </Text>
+
+              <Text
+                style={
+                  styles.prizePreviewValueBingo
+                }
+              >
+                {dynamicPrizePreview.bingo.remaining}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.prizePreviewSubRow
+              }
+            >
+              <Text
+                style={
+                  styles.prizePreviewSubText
+                }
+              >
+                {dynamicPrizePreview.bingo.paid > 0
+                  ? `conquista local: ${dynamicPrizePreview.bingo.paid}`
+                  : `fundo: ${categoryPrizePools.bingo}`}
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.projectedAccumulatorCard
+              }
+            >
+              <Text
+                style={
+                  styles.projectedAccumulatorTitle
+                }
+              >
+                🔥 PROJEÇÃO DO ACUMULADO DA SALA
+              </Text>
+
+              <Text
+                style={
+                  styles.projectedAccumulatorValue
+                }
+              >
+                🟡 {projectedAccumulatorGoldAfterRound}
+                {'  '}
+                💵 {Math.floor(
+                  projectedAccumulatorBBAfterRound,
+                )}
+              </Text>
+
+              <Text
+                style={
+                  styles.projectedAccumulatorNote
+                }
+              >
+                Simulação: o que não encontrar vencedor permanece no fundo da sala.
+              </Text>
+            </View>
+
+            <Text
+              style={
+                styles.prizePreviewNote
+              }
+            >
+              Prévia dinâmica • não é pagamento real.
+            </Text>
+
+            <View
+              style={
+                styles.prizeLedgerLegend
+              }
+            >
+              <Text
+                style={
+                  styles.prizeLedgerLegendTitle
+                }
+              >
+                CONQUISTA ≠ PAGAMENTO
+              </Text>
+
+              <Text
+                style={
+                  styles.prizeLedgerLegendText
+                }
+              >
+                ✅ = conquista detectada
+                {'  '}
+                💰 = pagamento da sala
+              </Text>
+            </View>
+
+            <Text
+              style={
+                styles.prizePreviewLiveNote
+              }
+            >
+              Vagas ocupadas nesta cartela:
+              {' '}
+              T {dynamicPrizePreview.terno.winners}/5
+              {' • '}
+              Q {dynamicPrizePreview.quadra.winners}/3
+              {' • '}
+              L {dynamicPrizePreview.linha.winners}/3
+              {' • '}
+              D {dynamicPrizePreview.dupla.winners}/3
+            </Text>
+
+            <View
+              style={
+                styles.settlementQueueCard
+              }
+            >
+              <Text
+                style={
+                  styles.settlementQueueTitle
+                }
+              >
+                FILA DE LIQUIDAÇÃO DA RODADA
+              </Text>
+
+              <Text
+                style={
+                  styles.settlementQueueValue
+                }
+              >
+                {pendingSettlements.length}
+                {' '}
+                aguardando confirmação
+              </Text>
+
+              <Text
+                style={
+                  styles.settlementQueueSubtext
+                }
+              >
+                {settlementCount}
+                {' '}
+                eventos registrados
+                {' • '}
+                {paidSettlements.length}
+                {' '}
+                pagos
+              </Text>
+            </View>
+
+            {settlementQueue.length > 0 && (
+              <View
+                style={
+                  styles.settlementEventList
+                }
+              >
+                {settlementQueue
+                  .slice(-5)
+                  .reverse()
+                  .map(
+                    (event) => (
+                      <Text
+                        key={
+                          event.id
+                        }
+                        style={
+                          styles.settlementEventText
+                        }
+                      >
+                        {event.category ===
+                        'terno'
+                          ? '🥉 Terno'
+                          : event.category ===
+                            'quadra'
+                            ? '🥈 Quadra'
+                            : event.category ===
+                              'linha'
+                              ? '🟡 Linha'
+                              : event.category ===
+                                'dupla'
+                                ? '🏆 Dupla'
+                                : '🎱 Bingo'}
+                        {' • '}
+                        bola {event.number}
+                        {' • '}
+                        {event.status ===
+                        'eligible'
+                          ? 'aguardando'
+                          : 'pago'}
+                      </Text>
+                    ),
+                  )}
+              </View>
+            )}
+
+            <Text
+              style={
+                styles.prizePreviewLiveNote
+              }
+            >
+              Pagamentos locais: T {patternPaid.terno ? '💰' : '—'}
+              {' • '}
+              Q {patternPaid.quadra ? '💰' : '—'}
+              {' • '}
+              L {patternPaid.linha ? '💰' : '—'}
+              {' • '}
+              D {patternPaid.linhaDupla ? '💰' : '—'}
+              {' • '}
+              B {patternPaid.bingo ? '💰' : '—'}
+            </Text>
+
+            <Text
+              style={
+                styles.prizePreviewNote
+              }
+            >
+              Na sala multiusuário, os vencedores reais serão registrados pelo servidor.
+            </Text>
+          </View>
+
+          {patternState.linha.completed &&
+            !patternState.bingo.completed && (
+              <View
+                style={
+                  styles.completedLineNotice
+                }
+              >
+                <Text
+                  style={
+                    styles.completedLineNoticeText
+                  }
+                >
+                  🏅 LINHA COMPLETA DESTACADA NA CARTELA
+                </Text>
+              </View>
+            )}
+
+          {latestAchievementMessage !== '' && (
+            <View
+              style={[
+                styles.achievementHighlight,
+                latestAchievementType ===
+                  'special' &&
+                  styles.achievementHighlightSpecial,
+                latestAchievementType ===
+                  'bingo' &&
+                  styles.achievementHighlightBingo,
+              ]}
+            >
+              <Text
+                style={
+                  latestAchievementType ===
+                  'bingo'
+                    ? styles.achievementHighlightBingoTitle
+                    : styles.achievementHighlightText
+                }
+              >
+                {latestAchievementMessage}
+              </Text>
+
+              <Text
+                style={
+                  styles.achievementHighlightSubtext
+                }
+              >
+                {latestAchievementType ===
+                'bingo'
+                  ? '24 / 24 números marcados • BINGO VÁLIDO'
+                  : latestAchievementType ===
+                    'special'
+                    ? 'Conquista especial registrada nesta cartela'
+                    : 'Conquista registrada nesta cartela'}
+              </Text>
+            </View>
+          )}
+
+          <View
+            style={
+              styles.achievementLedger
+            }
+          >
+            <Text
+              style={
+                styles.achievementLedgerTitle
+              }
+            >
+              CONQUISTAS DA CARTELA
+            </Text>
+
+            <Text
+              style={
+                styles.achievementLedgerText
+              }
+            >
+              Terno {patternAwards.terno ? '✅' : '—'}
+              {'  '}Quadra {patternAwards.quadra ? '✅' : '—'}
+              {'  '}Linha {patternAwards.linha ? '✅' : '—'}
+              {'  '}Dupla {patternAwards.linhaDupla ? '✅' : '—'}
+              {'  '}Bingo {patternAwards.bingo ? '🏆' : '—'}
+            </Text>
+          </View>
+
+          {patternState.linha.completed &&
+            !patternState.bingo.completed && (
+              <Text
+                style={
+                  styles.lineTypeHint
+                }
+              >
+                {patternState.diagonais.some(
+                  (item) =>
+                    item.completed,
+                )
+                  ? '↘/↗ LINHA DIAGONAL • PRÊMIO MENOR'
+                  : '→ LINHA HORIZONTAL • PRÊMIO MAIOR'}
+              </Text>
+            )}
+
+          <View
+            style={
+              styles.fullCardProgressCard
+            }
+          >
+            <View
+              style={
+                styles.fullCardProgressHeader
+              }
+            >
+              <Text
+                style={
+                  styles.fullCardProgressTitle
+                }
+              >
+                PROGRESSO PARA BINGO
+              </Text>
+
+              <Text
+                style={
+                  styles.fullCardProgressValue
+                }
+              >
+                {fullCardProgress} / 24
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.fullCardProgressTrack
+              }
+            >
+              <View
+                style={[
+                  styles.fullCardProgressFill,
+                  {
+                    width: `${fullCardPercentage}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          <View
+            style={
+              styles.patternStatusStrip
+            }
+          >
+            <Text
+              style={
+                styles.patternStatusTitle
+              }
+            >
+              STATUS DA CARTELA
+            </Text>
+
+            <Text
+              style={
+                styles.patternStatusText
+              }
+            >
+              Terno {patternState.terno.completed ? '✅' : '—'}
+              {'  '}Quadra {patternState.quadra.completed ? '✅' : '—'}
+              {'  '}Linha {patternState.linha.completed ? '✅' : '—'}
+              {'  '}Dupla {patternState.linhaDupla.completed ? '✅' : '—'}
+              {'  '}Bingo {patternState.bingo.completed ? '🏆' : '—'}
+            </Text>
+          </View>
+
           {specialEventMessage !== '' && (
             <View
               style={
@@ -1950,6 +3255,15 @@ const hitCardNumber =
                   styles.matchSummaryGrid
                 }
               >
+              <Text
+                style={
+                  styles.matchSummaryNote
+                }
+              >
+                Valores de premiação são uma prévia do motor; pagamento real
+                entra quando houver rodada multiusuário.
+              </Text>
+
                 <View
                   style={
                     styles.matchSummaryItem
@@ -2007,6 +3321,94 @@ const hitCardNumber =
                     }
                   >
                     {virtualPrizePoolPreview}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItemWide
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🔥
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    ACUMULADO DA SALA
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValueSmall
+                    }
+                  >
+                    🟡 {simulatedAccumulatorGold}
+                    {'  '}
+                    💵 {Math.floor(simulatedAccumulatorBB)}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.accumulatorCurrencyHint
+                    }
+                  >
+                    Fichas douradas + BB Dólinhas
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryNote
+                    }
+                  >
+                    Prévia matemática • não é pagamento
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.matchSummaryItem
+                  }
+                >
+                  <Text
+                    style={
+                      styles.matchSummaryIcon
+                    }
+                  >
+                    🏅
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryLabel
+                    }
+                  >
+                    PRÊMIOS
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.matchSummaryValue
+                    }
+                  >
+                    {patternAwards.terno
+                      ? 'T✅'
+                      : 'T—'}
+                    {' '}
+                    {patternAwards.quadra
+                      ? 'Q✅'
+                      : 'Q—'}
+                    {' '}
+                    {patternAwards.linha
+                      ? 'L✅'
+                      : 'L—'}
                   </Text>
                 </View>
 
@@ -2276,6 +3678,17 @@ const hitCardNumber =
                     almostBingo &&
                     row === bestRowIndex;
 
+                  const isCompletedPatternCell =
+                    patternState.linha.winningIndexes.includes(
+                      index,
+                    ) ||
+                    patternState.linhaDupla.winningIndexes.includes(
+                      index,
+                    );
+
+                  const isBingoCell =
+                    patternState.bingo.completed;
+
                   return (
                     <View
                       key={`${number}-${index}`}
@@ -2299,6 +3712,10 @@ const hitCardNumber =
                           styles.numberInner,
                           isFree &&
                             styles.freeInner,
+                          isCompletedPatternCell &&
+                            styles.completedPatternCell,
+                          isBingoCell &&
+                            styles.bingoCell,
                           isMarked &&
                             !isFree &&
                             styles.markedInner,
@@ -2341,6 +3758,10 @@ const hitCardNumber =
                                   styles.winningText,
                                 isAlmostWinningRow &&
                                   styles.almostWinningText,
+                                isCompletedPatternCell &&
+                                  styles.completedPatternText,
+                                isBingoCell &&
+                                  styles.bingoCellNumberText,
                               ]}
                             >
                               {number}
@@ -3189,6 +4610,424 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  achievementHighlightSpecial: {
+    backgroundColor: '#4A3A10',
+    borderColor: '#F6CA5F',
+  },
+
+  achievementHighlightBingo: {
+    minHeight: 92,
+    backgroundColor: '#0B6E58',
+    borderColor: '#F6CA5F',
+    borderWidth: 3,
+  },
+
+  achievementHighlightBingoTitle: {
+    color: '#F6CA5F',
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.6,
+  },
+
+  prizePreviewCard: {
+    marginTop: 8,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#0D2342',
+    borderWidth: 1,
+    borderColor: '#315176',
+  },
+
+  prizePreviewLiveNote: {
+    color: '#A9FFE0',
+    fontSize: 7,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 7,
+  },
+
+  prizePreviewTitle: {
+    color: '#F6CA5F',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+
+  roundAccountingCard: {
+    marginBottom: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 13,
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#315176',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+  },
+
+  roundAccountingItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+
+  roundAccountingLabel: {
+    color: '#7EB2D3',
+    fontSize: 6,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.4,
+  },
+
+  roundAccountingValue: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+
+  roundAccountingValueHighlight: {
+    color: '#F6CA5F',
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+
+  settlementQueueCard: {
+    marginTop: 7,
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 13,
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#315176',
+    alignItems: 'center',
+  },
+
+  settlementQueueTitle: {
+    color: '#F6CA5F',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+
+  settlementQueueValue: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+
+  settlementQueueSubtext: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    fontWeight: '700',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  settlementEventList: {
+    marginBottom: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#0D2342',
+  },
+
+  settlementEventText: {
+    color: '#A9FFE0',
+    fontSize: 7,
+    fontWeight: '700',
+    marginVertical: 1,
+    textAlign: 'center',
+  },
+
+  prizeLedgerLegend: {
+    marginBottom: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#132B4A',
+    borderWidth: 1,
+    borderColor: '#315176',
+    alignItems: 'center',
+  },
+
+  prizeLedgerLegendTitle: {
+    color: '#F6CA5F',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+
+  prizeLedgerLegendText: {
+    color: '#A9FFE0',
+    fontSize: 7,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  prizePreviewHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 5,
+    marginBottom: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#315176',
+  },
+
+  prizePreviewHeaderLabel: {
+    color: '#7EB2D3',
+    fontSize: 6,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  prizePreviewStatus: {
+    minWidth: 52,
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  prizePreviewSubRow: {
+    paddingLeft: 4,
+    paddingBottom: 4,
+  },
+
+  prizePreviewSubText: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    fontWeight: '700',
+  },
+
+  prizePreviewRowBingo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    marginTop: 3,
+    borderTopWidth: 1,
+    borderTopColor: '#F6CA5F',
+  },
+
+  prizePreviewLabelBingo: {
+    color: '#F6CA5F',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  prizePreviewStatusBingo: {
+    minWidth: 70,
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  prizePreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+
+  prizePreviewLabel: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+
+  prizePreviewValue: {
+    color: '#A9FFE0',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  prizePreviewValueBingo: {
+    color: '#F6CA5F',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  accumulatorCurrencyHint: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    fontWeight: '700',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  projectedAccumulatorCard: {
+    marginTop: 7,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: '#0B6E58',
+    borderWidth: 1,
+    borderColor: '#1BCB83',
+    alignItems: 'center',
+  },
+
+  projectedAccumulatorTitle: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+
+  projectedAccumulatorValue: {
+    color: '#F6CA5F',
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+
+  projectedAccumulatorNote: {
+    color: '#D4FFF1',
+    fontSize: 7,
+    lineHeight: 10,
+    fontWeight: '700',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+
+  prizePreviewNote: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    lineHeight: 10,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+
+  lineTypeHint: {
+    alignSelf: 'center',
+    marginTop: 6,
+    marginBottom: 2,
+    color: '#F6CA5F',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  completedLineNotice: {
+    marginTop: 7,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 11,
+    backgroundColor: '#4A3A10',
+    borderWidth: 1,
+    borderColor: '#F6CA5F',
+    alignItems: 'center',
+  },
+
+  completedLineNoticeText: {
+    color: '#F6CA5F',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+
+  achievementHighlight: {
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#0B6E58',
+    borderWidth: 2,
+    borderColor: '#1BCB83',
+    alignItems: 'center',
+  },
+
+  achievementHighlightText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.4,
+  },
+
+  achievementHighlightSubtext: {
+    color: '#D4FFF1',
+    fontSize: 8,
+    fontWeight: '700',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+
+  achievementLedger: {
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#F6CA5F',
+  },
+
+  achievementLedgerTitle: {
+    color: '#F6CA5F',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+  },
+
+  achievementLedgerText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: 3,
+  },
+
+  patternStatusStrip: {
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#0D2342',
+    borderWidth: 1,
+    borderColor: '#315176',
+  },
+
+  patternStatusTitle: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+  },
+
+  patternStatusText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: 3,
+  },
+
   specialEventCard: {
     marginTop: 8,
     paddingHorizontal: 12,
@@ -3733,6 +5572,71 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+  fullCardProgressCard: {
+    marginTop: 8,
+    marginBottom: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 15,
+    backgroundColor: '#0D2342',
+    borderWidth: 1,
+    borderColor: '#315176',
+  },
+
+  fullCardProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  fullCardProgressTitle: {
+    color: '#7EB2D3',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+
+  fullCardProgressValue: {
+    color: '#F6CA5F',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  fullCardProgressTrack: {
+    height: 8,
+    borderRadius: 6,
+    backgroundColor: '#102A4D',
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+
+  fullCardProgressFill: {
+    height: '100%',
+    borderRadius: 6,
+    backgroundColor: '#1BCB83',
+  },
+
+  matchSummaryItemWide: {
+    width: '100%',
+    minHeight: 78,
+    borderRadius: 14,
+    backgroundColor: '#102A4D',
+    borderWidth: 1,
+    borderColor: '#315176',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 7,
+    paddingHorizontal: 8,
+  },
+
+  matchSummaryValueSmall: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
   matchSummaryItem: {
     width: '48.5%',
     minHeight: 78,
@@ -3757,6 +5661,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginTop: 3,
     textAlign: 'center',
+  },
+
+  matchSummaryNote: {
+    color: '#7EB2D3',
+    fontSize: 7,
+    lineHeight: 11,
+    textAlign: 'center',
+    marginTop: 3,
   },
 
   matchSummaryValue: {
@@ -3873,6 +5785,26 @@ const styles = StyleSheet.create({
         scale: 0.96,
       },
     ],
+  },
+
+  completedPatternCell: {
+    backgroundColor: '#E9D27A',
+    borderColor: '#B28C1E',
+    borderWidth: 2,
+  },
+
+  bingoCell: {
+    backgroundColor: '#B8F0DE',
+    borderColor: '#1BCB83',
+    borderWidth: 2,
+  },
+
+  completedPatternText: {
+    color: '#3D2B05',
+  },
+
+  bingoCellNumberText: {
+    color: '#064C3D',
   },
 
   numberText: {

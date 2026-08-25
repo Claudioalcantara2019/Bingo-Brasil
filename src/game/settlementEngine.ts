@@ -8,6 +8,7 @@ export type SettlementInput = {
   category:
     | 'terno'
     | 'quadra'
+    | 'diagonal'
     | 'linha'
     | 'dupla'
     | 'bingo';
@@ -34,6 +35,7 @@ export type PlayerSettlement = {
   category:
     | 'terno'
     | 'quadra'
+    | 'diagonal'
     | 'linha'
     | 'dupla'
     | 'bingo';
@@ -44,14 +46,13 @@ export type PlayerSettlement = {
 export type SettlementResult = {
   roundId: string;
   settlementKey: string;
-
   category:
     | 'terno'
     | 'quadra'
+    | 'diagonal'
     | 'linha'
     | 'dupla'
     | 'bingo';
-
   status: 'paid' | 'already-paid' | 'rejected';
 
   totalGold: number;

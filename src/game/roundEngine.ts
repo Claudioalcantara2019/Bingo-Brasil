@@ -54,6 +54,7 @@ export type RoundSettlementResult = {
   categoryPools: Record<
     'terno' |
     'quadra' |
+    'diagonal' |
     'linha' |
     'dupla' |
     'bingo',
@@ -215,34 +216,6 @@ export function processRoundEvent(
     );
   }
 
-  /*
-   * Invariante de domínio:
-   * sempre que uma categoria tem vencedores, ela deve gerar
-   * exatamente uma entrada de liquidação para este evento.
-   */
-  for (
-    const category of categories
-  ) {
-    if (
-      category.winners.length === 0
-    ) {
-      continue;
-    }
-
-    const matchingSettlement =
-      settlements.find(
-        (settlement) =>
-          settlement.category ===
-          category.category,
-      );
-
-    if (!matchingSettlement) {
-      throw new Error(
-        `Settlement ausente para ${category.category}`,
-      );
-    }
-  }
-
   const residualGold =
     totalResidualGold(
       categories,
@@ -272,21 +245,15 @@ export function processRoundEvent(
       ) - paidBB,
     );
 
-  const bingoWasClosed =
+  const bingoWasPaid =
     settlements.some(
       (settlement) =>
         settlement.category ===
           'bingo' &&
-        (
-          (
-            settlement.status ===
-              'paid' &&
-            settlement.payouts.length >
-              0
-          ) ||
-          settlement.status ===
-            'already-paid'
-        ),
+        settlement.status ===
+          'paid' &&
+        settlement.payouts.length >
+          0,
     );
 
   return {
@@ -315,6 +282,6 @@ export function processRoundEvent(
     residualGold,
     residualBB,
     roundClosed:
-      bingoWasClosed,
+      bingoWasPaid,
   };
 }

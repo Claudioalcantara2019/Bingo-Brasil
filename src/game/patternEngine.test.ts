@@ -23,7 +23,11 @@ const card = [
 ];
 
 const terno =
-  new Set([1, 16, 31]);
+  new Set([
+    1,
+    16,
+    31,
+  ]);
 
 assert(
   evaluateCardPatterns(
@@ -34,7 +38,12 @@ assert(
 );
 
 const quadra =
-  new Set([1, 16, 31, 46]);
+  new Set([
+    1,
+    16,
+    31,
+    46,
+  ]);
 
 assert(
   evaluateCardPatterns(
@@ -45,18 +54,31 @@ assert(
 );
 
 const horizontal =
-  new Set([1, 16, 31, 46, 61]);
+  new Set([
+    1,
+    16,
+    31,
+    46,
+    61,
+  ]);
 
 assert(
   detectLines(
     card,
     horizontal,
-  ).horizontals[0].completed,
+  ).horizontals[0]
+    .completed,
   'Linha horizontal não detectada',
 );
 
 const diagonal =
-  new Set([1, 17, 0, 49, 65]);
+  new Set([
+    1,
+    17,
+    0,
+    49,
+    65,
+  ]);
 
 assert(
   detectLines(
@@ -69,24 +91,101 @@ assert(
   'Linha diagonal não detectada',
 );
 
-const doubleLine =
+/*
+ * REGRA OFICIAL:
+ * Linha Dupla = 2 linhas HORIZONTAIS completas.
+ * Diagonais não contam para formar Linha Dupla.
+ */
+
+const doubleHorizontal =
   new Set([
     1, 16, 31, 46, 61,
     5, 20, 35, 50, 65,
   ]);
 
-assert(
+const doubleHorizontalResult =
   detectLineDouble(
     card,
-    doubleLine,
-  ).completed,
-  'Linha dupla não detectada',
+    doubleHorizontal,
+  );
+
+assert(
+  doubleHorizontalResult.completed,
+  'Duas horizontais deveriam formar Linha Dupla',
+);
+
+assert(
+  doubleHorizontalResult.lineIndexes.length ===
+    2,
+  'Linha Dupla deveria registrar exatamente 2 horizontais',
+);
+
+const oneHorizontalOneDiagonal =
+  new Set([
+    1, 16, 31, 46, 61,
+    1, 17, 0, 49, 65,
+  ]);
+
+const mixedResult =
+  detectLineDouble(
+    card,
+    oneHorizontalOneDiagonal,
+  );
+
+assert(
+  !mixedResult.completed,
+  'Horizontal + diagonal NÃO deve formar Linha Dupla',
+);
+
+assert(
+  mixedResult.progress === 1,
+  'Horizontal + diagonal deveria contar somente a horizontal',
+);
+
+const doubleDiagonal =
+  new Set([
+    1, 17, 0, 49, 65,
+    5, 18, 0, 47, 61,
+  ]);
+
+const doubleDiagonalResult =
+  detectLineDouble(
+    card,
+    doubleDiagonal,
+  );
+
+assert(
+  !doubleDiagonalResult.completed,
+  'Duas diagonais NÃO devem formar Linha Dupla',
+);
+
+assert(
+  doubleDiagonalResult.progress === 0,
+  'Duas diagonais não devem aumentar o progresso da Linha Dupla',
+);
+
+/*
+ * A diagonal continua sendo uma conquista própria.
+ */
+const evaluatedMixed =
+  evaluateCardPatterns(
+    card,
+    diagonal,
+  );
+
+assert(
+  evaluatedMixed.diagonais.some(
+    (result) =>
+      result.completed,
+  ),
+  'A diagonal deixou de existir como conquista própria',
 );
 
 const bingo =
   new Set(
     card.filter(
-      (number) => number !== 0,
+      (number) =>
+        number !== 0,
     ),
   );
 
