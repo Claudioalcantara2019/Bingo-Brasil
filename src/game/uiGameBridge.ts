@@ -6,6 +6,10 @@ import {
   getRoundCategoryWinnerCount,
 } from './roundWinnerRegistry';
 
+import {
+  getRoundState,
+} from './roundStateEngine';
+
 export type UiPrizeRow = {
   key:
     | 'terno'
@@ -49,6 +53,9 @@ export type UiRoundSummary = {
 
   finished:
     boolean;
+
+  drawCount: number;
+  drawnNumbers: number[];
 
   totalGoldPaid: number;
   totalBBPaid: number;
@@ -99,6 +106,8 @@ export function buildUiRoundSummary(
               ? 'round-mismatch'
               : 'room-not-running',
       finished: false,
+      drawCount: 0,
+      drawnNumbers: [],
       totalGoldPaid: 0,
       totalBBPaid: 0,
       prizes: [
@@ -156,6 +165,11 @@ export function buildUiRoundSummary(
 
   const flow =
     result.flow;
+
+  const roundState =
+    getRoundState(
+      flow.round.roundId,
+    );
 
   const categories =
     flow.round.categories;
@@ -245,6 +259,12 @@ export function buildUiRoundSummary(
     blockedReason: 'none',
     finished:
       result.flow.finished,
+    drawCount:
+      roundState?.drawCount ??
+      0,
+    drawnNumbers:
+      roundState?.drawnNumbers ??
+      [],
     totalGoldPaid:
       flow.payout
         .totalGoldCredited,

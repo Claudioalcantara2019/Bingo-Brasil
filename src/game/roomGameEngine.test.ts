@@ -348,6 +348,33 @@ assert(
   'Cartelas já premiadas não deveriam receber novo Terno',
 );
 
+const repeatedNumberEvent =
+  processRoomGameEvent({
+    roomId:
+      'ROOM-TERNOS',
+    roundId:
+      'ROUND-TERNOS',
+    triggerNumber:
+      10,
+    virtualGoldUsed:
+      1000,
+    accumulatedBB:
+      12,
+    candidates: {
+      terno: [],
+      quadra: [],
+      diagonal: [],
+      linha: [],
+      dupla: [],
+      bingo: [],
+    },
+  });
+
+assert(
+  !repeatedNumberEvent.ok,
+  'A mesma bola não deveria ser processada duas vezes',
+);
+
 /*
  * Uma nova cartela ocupa a próxima vaga.
  */

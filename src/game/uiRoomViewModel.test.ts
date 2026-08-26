@@ -43,6 +43,10 @@ const state: UiRoomState = {
       'none',
     finished:
       true,
+    drawCount:
+      12,
+    drawnNumbers:
+      [4, 18, 27, 44, 57],
     totalGoldPaid:
       225,
     totalBBPaid:

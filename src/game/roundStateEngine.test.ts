@@ -49,6 +49,29 @@ assert(
   'Número não foi registrado',
 );
 
+assert(
+  number.ok &&
+    number.state.lastNumber === 57 &&
+    number.state.drawCount === 1 &&
+    number.state.drawnNumbers.length === 1 &&
+    number.state.drawnNumbers[0] === 57,
+  'Histórico da rodada não foi registrado',
+);
+
+const duplicate =
+  recordDrawnNumber(
+    'STATE-ROUND-1',
+    57,
+  );
+
+assert(
+  !duplicate.ok &&
+    duplicate.reason ===
+      'number-already-drawn' &&
+    duplicate.state.drawCount === 1,
+  'Rodada aceitou uma bola duplicada',
+);
+
 const closed =
   closeRound('STATE-ROUND-1');
 

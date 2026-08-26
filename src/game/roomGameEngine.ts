@@ -4,6 +4,10 @@ import {
 } from './roomRoundCoordinator';
 
 import {
+  recordDrawnNumber,
+} from './roundStateEngine';
+
+import {
   processGameEvent,
 } from './gameFlowEngine';
 
@@ -36,6 +40,7 @@ export type RoomGameEventResult = {
     | 'room-not-running'
     | 'round-mismatch'
     | 'round-closed'
+    | 'number-already-drawn'
     | 'processed-and-closed';
 
   roomStatus:
@@ -220,6 +225,36 @@ export function processRoomGameEvent(
       ok: false,
       reason:
         'room-not-running',
+      roomStatus:
+        state.room.status,
+      roundStatus:
+        state.roundStatus,
+      flow: null,
+    };
+  }
+
+  /*
+   * The round state is now the authoritative source for the
+   * sequence of drawn numbers. This prevents the UI from
+   * accidentally processing the same ball twice.
+   */
+  const drawResult =
+    recordDrawnNumber(
+      input.roundId,
+      input.triggerNumber,
+    );
+
+  if (!drawResult.ok) {
+    return {
+      ok: false,
+      reason:
+        drawResult.reason ===
+        'number-already-drawn'
+          ? 'number-already-drawn'
+          : drawResult.reason ===
+              'already-closed'
+            ? 'round-closed'
+            : 'room-not-running',
       roomStatus:
         state.room.status,
       roundStatus:

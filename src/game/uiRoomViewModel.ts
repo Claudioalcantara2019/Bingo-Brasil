@@ -176,10 +176,15 @@ export function buildUiRoomViewModel(
       'Sem rodada',
 
     lastNumberText:
-      state.view.finished &&
-      state.view.prizes.length > 0
+      state.view.finished
         ? 'Rodada encerrada'
-        : 'Aguardando bola',
+        : state.view.drawCount > 0
+          ? String(
+              state.view.drawnNumbers[
+                state.view.drawnNumbers.length - 1
+              ],
+            )
+          : 'Aguardando bola',
 
     totalGoldPaidText:
       formatInteger(

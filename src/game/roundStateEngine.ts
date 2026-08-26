@@ -8,6 +8,7 @@ export type RoundState = {
   status: RoundStatus;
   lastNumber: number | null;
   drawCount: number;
+  drawnNumbers: number[];
 };
 
 export type RoundStateResult = {
@@ -17,6 +18,7 @@ export type RoundStateResult = {
     | 'created'
     | 'started'
     | 'number-recorded'
+    | 'number-already-drawn'
     | 'closed'
     | 'already-closed'
     | 'already-running'
@@ -41,6 +43,7 @@ export function createRound(
         status: 'open',
         lastNumber: null,
         drawCount: 0,
+        drawnNumbers: [],
       },
       reason: 'invalid-state',
     };
@@ -64,6 +67,7 @@ export function createRound(
     status: 'open',
     lastNumber: null,
     drawCount: 0,
+    drawnNumbers: [],
   };
 
   states.set(roundId, state);
@@ -88,6 +92,7 @@ export function startRound(
         status: 'open',
         lastNumber: null,
         drawCount: 0,
+        drawnNumbers: [],
       },
       reason: 'invalid-state',
     };
@@ -137,6 +142,7 @@ export function recordDrawnNumber(
         status: 'open',
         lastNumber: null,
         drawCount: 0,
+        drawnNumbers: [],
       },
       reason: 'invalid-state',
     };
@@ -158,6 +164,14 @@ export function recordDrawnNumber(
     };
   }
 
+  if (current.drawnNumbers.includes(number)) {
+    return {
+      ok: false,
+      state: { ...current },
+      reason: 'number-already-drawn',
+    };
+  }
+
   if (current.status !== 'running') {
     return {
       ok: false,
@@ -170,6 +184,10 @@ export function recordDrawnNumber(
     ...current,
     lastNumber: number,
     drawCount: current.drawCount + 1,
+    drawnNumbers: [
+      ...current.drawnNumbers,
+      number,
+    ],
   };
 
   states.set(roundId, next);
@@ -194,6 +212,7 @@ export function closeRound(
         status: 'open',
         lastNumber: null,
         drawCount: 0,
+        drawnNumbers: [],
       },
       reason: 'invalid-state',
     };

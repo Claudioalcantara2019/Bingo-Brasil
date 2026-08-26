@@ -13,6 +13,8 @@ export type UiRoomPresentation = {
   round: {
     id: string;
     lastNumber: string;
+    drawCount: number;
+    drawnNumbers: number[];
     banner: string;
     blocked: boolean;
   };
@@ -41,6 +43,10 @@ export function buildUiRoomPresentation(
     round: {
       id: view.roundIdText,
       lastNumber: view.lastNumberText,
+      drawCount: state.view.drawCount,
+      drawnNumbers: [
+        ...state.view.drawnNumbers,
+      ],
       banner: view.bannerText,
       blocked: view.blocked,
     },

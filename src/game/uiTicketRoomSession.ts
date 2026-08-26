@@ -113,7 +113,17 @@ function buildUiRoomPresentationFromState(
       lastNumber:
         view.finished
           ? 'Rodada encerrada'
-          : 'Aguardando bola',
+          : view.drawCount > 0
+            ? String(
+                view.drawnNumbers[
+                  view.drawnNumbers.length - 1
+                ],
+              )
+            : 'Aguardando bola',
+      drawCount:
+        view.drawCount,
+      drawnNumbers:
+        [...view.drawnNumbers],
       banner:
         view.finished
           ? '🎱 BINGO — rodada encerrada'

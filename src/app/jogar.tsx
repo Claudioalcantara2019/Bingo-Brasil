@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+    Image,
+    ImageBackground,
     Pressable,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     View,
+    useWindowDimensions,
 } from 'react-native';
 
 import {
@@ -27,6 +30,11 @@ import {
   createUiTicketGameActions,
   type UiTicketGameActions,
 } from '../game/uiTicketGameActions';
+
+const VISUAL_BACKGROUND = require('../../assets/images/FUNDO-VILA-TROPICAL-HERO.png');
+const VISUAL_FOREGROUND = require('../../assets/images/PRIMEIRO-PLANO-VILA-TROPICAL.png');
+const BIANCA_OFFICIAL = require('../../assets/images/BIANCA-OFICIAL.png');
+const BOB_OFFICIAL = require('../../assets/images/BOB-OFICIAL.png');
 
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
@@ -151,6 +159,8 @@ function createGeneratedCard(): BingoCard {
 }
 
 export default function BingoGameScreen() {
+  const { width } = useWindowDimensions();
+  const isCompactLayout = width < 720;
   /*
    * Integração interna em shadow mode.
    * A mecânica local continua comandando a tela nesta etapa.
@@ -849,9 +859,16 @@ const hitCardNumber =
       return;
     }
 
+    /*
+     * A sequência da rodada agora vem do núcleo.
+     * O estado React continua sendo a projeção visual.
+     */
+    const authoritativeDrawnNumbers =
+      uiTicketActions.read().round.drawnNumbers;
+
     const nextNumber =
       getNextNumber(
-        drawnNumbers,
+        authoritativeDrawnNumbers,
       );
 
     if (
@@ -862,13 +879,6 @@ const hitCardNumber =
 
     setDrawnNumber(
       nextNumber,
-    );
-
-    setDrawnNumbers(
-      (current) => [
-        ...current,
-        nextNumber,
-      ],
     );
 
     const drawnCardIndex =
@@ -1030,12 +1040,13 @@ const hitCardNumber =
      * o novo núcleo recebe exatamente os mesmos padrões que
      * acabamos de calcular para a cartela.
      */
-    uiTicketActions.processBallFromTickets(
-      uiTicketRoundId,
-      nextNumber,
-      virtualEntryValue,
-      roomAccumulatorBB,
-      {
+    const ticketResult =
+      uiTicketActions.processBallFromTickets(
+        uiTicketRoundId,
+        nextNumber,
+        virtualEntryValue,
+        roomAccumulatorBB,
+        {
         terno:
           patterns.terno.completed
             ? [
@@ -1107,8 +1118,16 @@ const hitCardNumber =
                 },
               ]
             : [],
-      },
+        },
+      );
+
+    setDrawnNumbers(
+      ticketResult.state.round.drawnNumbers,
     );
+
+    if (!ticketResult.ok) {
+      return;
+    }
 
     if (
       shouldAutoMarkDrawnNumber ||
@@ -1461,7 +1480,18 @@ const hitCardNumber =
         styles.safeArea
       }
     >
-      <ScrollView
+      <ImageBackground
+        source={VISUAL_BACKGROUND}
+        resizeMode="cover"
+        style={styles.visualBackground}
+        imageStyle={styles.visualBackgroundImage}
+      >
+        <View
+          pointerEvents="none"
+          style={styles.visualTint}
+        />
+
+        <ScrollView
         contentContainerStyle={
           styles.scrollContent
         }
@@ -1560,6 +1590,76 @@ const hitCardNumber =
             </Text>
           </View>
           </View>
+        </View>
+
+        {/* CENÁRIO VISUAL — VILA TROPICAL + BIANCA + BOB */}
+        <View
+          pointerEvents="none"
+          style={[
+            styles.visualHostStage,
+            isCompactLayout &&
+              styles.visualHostStageCompact,
+          ]}
+        >
+          <Image
+            source={BIANCA_OFFICIAL}
+            resizeMode="contain"
+            style={[
+              styles.visualBianca,
+              isCompactLayout &&
+                styles.visualBiancaCompact,
+            ]}
+          />
+
+          <View
+            style={[
+              styles.visualStageCenter,
+              isCompactLayout &&
+                styles.visualStageCenterCompact,
+            ]}
+          >
+            <View style={styles.visualStageBadge}>
+              <Text style={styles.visualStageBadgeText}>
+                BINGO BRASIL • VILA TROPICAL
+              </Text>
+            </View>
+
+            <View style={styles.visualStagePanel}>
+              <Text style={styles.visualStageKicker}>
+                PARTIDA AO VIVO
+              </Text>
+
+              <Text style={styles.visualStageTitle}>
+                {drawnNumber === null
+                  ? 'PRÓXIMA BOLA'
+                  : `${currentLetter} • ${drawnNumber}`}
+              </Text>
+
+              <Text style={styles.visualStageSubtitle}>
+                {drawnNumber === null
+                  ? 'Bianca e Bob estão com você'
+                  : hasWon
+                    ? 'BINGO! Rodada conquistada!'
+                    : 'Continue acompanhando sua cartela'}
+              </Text>
+            </View>
+          </View>
+
+          <Image
+            source={BOB_OFFICIAL}
+            resizeMode="contain"
+            style={[
+              styles.visualBob,
+              isCompactLayout &&
+                styles.visualBobCompact,
+            ]}
+          />
+
+          <Image
+            source={VISUAL_FOREGROUND}
+            resizeMode="stretch"
+            style={styles.visualForeground}
+          />
         </View>
 
         {/* PROGRESSO DO JOGADOR */}
@@ -4165,14 +4265,157 @@ const hitCardNumber =
             : `${drawnNumbers.length} de 75 números sorteados`}
         </Text>
       </ScrollView>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  visualBackground: {
+    flex: 1,
+  },
+
+  visualBackgroundImage: {
+    opacity: 0.96,
+  },
+
+  visualTint: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(4, 20, 49, 0.48)',
+  },
+
+  visualHostStage: {
+    minHeight: 280,
+    marginBottom: 18,
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: 'rgba(3, 38, 77, 0.30)',
+    borderWidth: 1,
+    borderColor: 'rgba(120, 232, 255, 0.70)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  visualHostStageCompact: {
+    minHeight: 220,
+  },
+
+  visualStageCenter: {
+    width: '44%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+
+  visualStageCenterCompact: {
+    width: '50%',
+  },
+
+  visualStageBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: 'rgba(7, 65, 126, 0.90)',
+    borderWidth: 1,
+    borderColor: '#66E7FF',
+    marginBottom: 7,
+  },
+
+  visualStageBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+    textAlign: 'center',
+  },
+
+  visualStagePanel: {
+    width: '100%',
+    minHeight: 118,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(3, 25, 66, 0.88)',
+    borderWidth: 2,
+    borderColor: '#F6CA5F',
+  },
+
+  visualStageKicker: {
+    color: '#79F2DB',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+
+  visualStageTitle: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginTop: 7,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
+  },
+
+  visualStageSubtitle: {
+    color: '#CFFAFF',
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 7,
+    textAlign: 'center',
+  },
+
+  visualBianca: {
+    position: 'absolute',
+    left: -10,
+    bottom: -6,
+    width: 230,
+    height: 260,
+    zIndex: 2,
+  },
+
+  visualBiancaCompact: {
+    width: 135,
+    height: 175,
+    left: -8,
+    bottom: -4,
+  },
+
+  visualBob: {
+    position: 'absolute',
+    right: -2,
+    bottom: -10,
+    width: 190,
+    height: 270,
+    zIndex: 2,
+  },
+
+  visualBobCompact: {
+    width: 118,
+    height: 178,
+    right: -6,
+    bottom: -4,
+  },
+
+  visualForeground: {
+    position: 'absolute',
+    left: -20,
+    right: -20,
+    bottom: -2,
+    width: '110%',
+    height: 92,
+    opacity: 0.94,
+    zIndex: 4,
+  },
+
   safeArea: {
     flex: 1,
-    backgroundColor: '#07152D',
+    backgroundColor: '#06152D',
   },
 
   scrollContent: {
