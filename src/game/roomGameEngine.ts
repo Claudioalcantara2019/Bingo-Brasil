@@ -104,38 +104,33 @@ function filterRoundCandidates(
   };
 }
 
-function registerPaidRoundWinners(
+function registerConfirmedRoundWinners(
   roundId: string,
   triggerNumber: number,
   flow: GameFlowResult,
 ) {
   for (
-    const settlement of
-    flow.round.settlements
+    const category of
+    flow.round.categories
   ) {
     if (
-      settlement.status !==
-        'paid' &&
-      settlement.status !==
-        'already-paid'
+      category.winners.length ===
+      0
     ) {
       continue;
     }
 
-    const winners =
-      settlement.payouts.map(
-        (payout) => ({
-          userId:
-            payout.userId,
-          cardId:
-            payout.cardId,
-        }),
-      );
-
     registerRoundWinners(
       roundId,
-      settlement.category,
-      winners,
+      category.category,
+      category.winners.map(
+        (winner) => ({
+          userId:
+            winner.userId,
+          cardId:
+            winner.cardId,
+        }),
+      ),
       triggerNumber,
     );
   }
@@ -255,7 +250,7 @@ export function processRoomGameEvent(
       },
     );
 
-  registerPaidRoundWinners(
+  registerConfirmedRoundWinners(
     input.roundId,
     input.triggerNumber,
     flow,

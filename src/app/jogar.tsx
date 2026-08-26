@@ -24,8 +24,9 @@ import {
 } from '../game/patternEngine';
 
 import {
-  createUiRoomActions,
-} from '../game/uiRoomActions';
+  createUiTicketGameActions,
+  type UiTicketGameActions,
+} from '../game/uiTicketGameActions';
 
 const INITIAL_CHIPS = 1000;
 const WIN_REWARD = 100;
@@ -150,43 +151,50 @@ function createGeneratedCard(): BingoCard {
 }
 
 export default function BingoGameScreen() {
+  /*
+   * Integração interna em shadow mode.
+   * A mecânica local continua comandando a tela nesta etapa.
+   */
+  const [uiRoundVersion, setUiRoundVersion] =
+    useState(0);
+
+  const uiTicketActions:
+    UiTicketGameActions =
+    useMemo(
+      () =>
+        createUiTicketGameActions(
+          `LOCAL-UI-ROOM-${uiRoundVersion}`,
+          1,
+        ),
+      [
+        uiRoundVersion,
+      ],
+    );
+
+  const uiTicketRoundId =
+    `LOCAL-UI-ROUND-${uiRoundVersion}`;
+
+  useEffect(() => {
+    uiTicketActions.createRoom(1);
+
+    uiTicketActions.joinPlayer(
+      'LOCAL-PLAYER',
+      ['LOCAL-CARD'],
+    );
+
+    uiTicketActions.startRound(
+      uiTicketRoundId,
+    );
+  }, [
+    uiTicketActions,
+    uiTicketRoundId,
+  ]);
+
   const [generatedCard, setGeneratedCard] =
     useState<BingoCard>(
       () =>
         createGeneratedCard(),
     );
-
-  const uiRoomActions =
-    useMemo(
-      () =>
-        createUiRoomActions(
-          'LOCAL-UI-ROOM',
-          1,
-        ),
-      [],
-    );
-
-  const [uiRoomRoundId] =
-    useState(
-      'LOCAL-UI-ROUND-1',
-    );
-
-  useEffect(
-    () => {
-      uiRoomActions.createRoom(1);
-      uiRoomActions.joinPlayer(
-        'LOCAL-PLAYER',
-        ['LOCAL-CARD'],
-      );
-      uiRoomActions.startRound(
-        uiRoomRoundId,
-      );
-    },
-    [
-      uiRoomActions,
-      uiRoomRoundId,
-    ],
-  );
 
   const [cardNumbers, setCardNumbers] =
     useState<number[]>(
@@ -573,6 +581,28 @@ export default function BingoGameScreen() {
       .reverse();
 
   /*
+   * Fonte da nova tabela da rodada.
+   * Continua em shadow mode: usamos o núcleo para apresentar
+   * as vagas reais da rodada, sem substituir a mecânica local.
+   */
+  const uiPrizeRows =
+    uiTicketActions.read().prizes;
+
+  const uiPrizeRow = (
+    key:
+      | 'terno'
+      | 'quadra'
+      | 'diagonal'
+      | 'linha'
+      | 'dupla'
+      | 'bingo',
+  ) =>
+    uiPrizeRows.find(
+      (row) =>
+        row.key === key,
+    );
+
+  /*
    * PROGRESSO DA LINHA
    */
   let bestRowProgress = 0;
@@ -949,320 +979,347 @@ const hitCardNumber =
         nextNumber,
       );
 
+    /*
+     * ÚNICA FONTE DE VERDADE DO NOVO ESTADO DA CARTELA:
+     * calculamos exatamente a próxima coleção de marcados uma vez.
+     *
+     * A mesma coleção é usada por:
+     * 1. marcação visual/local;
+     * 2. detecção de padrões;
+     * 3. integração shadow com o novo núcleo.
+     *
+     * Isso evita que a cartela visual e a camada interna possam
+     * trabalhar com estados diferentes.
+     */
+    const nextMarkedNumbers =
+      new Set(
+        markedNumbers,
+      );
+
+    if (
+      shouldAutoMarkDrawnNumber
+    ) {
+      nextMarkedNumbers.add(
+        nextNumber,
+      );
+    }
+
+    for (
+      const affectedNumber
+      of affectedNumbers
+    ) {
+      nextMarkedNumbers.add(
+        affectedNumber,
+      );
+    }
+
+    const patterns =
+      evaluateCardPatterns(
+        cardNumbers,
+        nextMarkedNumbers,
+      );
+
+    const uiShadowDiagonalCompleted =
+      patterns.diagonais.some(
+        (diagonal) =>
+          diagonal.completed,
+      );
+
+    /*
+     * Shadow mode:
+     * o novo núcleo recebe exatamente os mesmos padrões que
+     * acabamos de calcular para a cartela.
+     */
+    uiTicketActions.processBallFromTickets(
+      uiTicketRoundId,
+      nextNumber,
+      virtualEntryValue,
+      roomAccumulatorBB,
+      {
+        terno:
+          patterns.terno.completed
+            ? [
+                {
+                  userId:
+                    'LOCAL-PLAYER',
+                  cardId:
+                    'LOCAL-CARD',
+                },
+              ]
+            : [],
+
+        quadra:
+          patterns.quadra.completed
+            ? [
+                {
+                  userId:
+                    'LOCAL-PLAYER',
+                  cardId:
+                    'LOCAL-CARD',
+                },
+              ]
+            : [],
+
+        diagonal:
+          uiShadowDiagonalCompleted
+            ? [
+                {
+                  userId:
+                    'LOCAL-PLAYER',
+                  cardId:
+                    'LOCAL-CARD',
+                },
+              ]
+            : [],
+
+        linha:
+          patterns.linha.completed
+            ? [
+                {
+                  userId:
+                    'LOCAL-PLAYER',
+                  cardId:
+                    'LOCAL-CARD',
+                },
+              ]
+            : [],
+
+        dupla:
+          patterns.linhaDupla.completed
+            ? [
+                {
+                  userId:
+                    'LOCAL-PLAYER',
+                  cardId:
+                    'LOCAL-CARD',
+                },
+              ]
+            : [],
+
+        bingo:
+          patterns.bingo.completed
+            ? [
+                {
+                  userId:
+                    'LOCAL-PLAYER',
+                  cardId:
+                    'LOCAL-CARD',
+                },
+              ]
+            : [],
+      },
+    );
+
     if (
       shouldAutoMarkDrawnNumber ||
       affectedNumbers.length > 0
     ) {
       setMarkedNumbers(
-        (current) => {
-          const next =
-            new Set(current);
+        nextMarkedNumbers,
+      );
 
-          if (
-            shouldAutoMarkDrawnNumber
-          ) {
-            next.add(
-              nextNumber,
-            );
-          }
+      setPatternAwards(
+        (current) => ({
+          terno:
+            current.terno ||
+            patterns.terno.completed,
+          quadra:
+            current.quadra ||
+            patterns.quadra.completed,
+          linha:
+            current.linha ||
+            patterns.linha.completed,
+          linhaDupla:
+            current.linhaDupla ||
+            patterns.linhaDupla.completed,
+          bingo:
+            current.bingo ||
+            patterns.bingo.completed,
+        }),
+      );
 
-          for (
-            const affectedNumber
-            of affectedNumbers
-          ) {
-            next.add(
-              affectedNumber,
-            );
-          }
+      const settlementCandidates = [
+        {
+          category:
+            'terno' as const,
+          completed:
+            patterns.terno.completed,
+        },
+        {
+          category:
+            'quadra' as const,
+          completed:
+            patterns.quadra.completed,
+        },
+        {
+          category:
+            'linha' as const,
+          completed:
+            patterns.linha.completed,
+        },
+        {
+          category:
+            'dupla' as const,
+          completed:
+            patterns.linhaDupla.completed,
+        },
+        {
+          category:
+            'bingo' as const,
+          completed:
+            patterns.bingo.completed,
+        },
+      ];
 
-          const patterns =
-            evaluateCardPatterns(
-              cardNumbers,
-              next,
-            );
+      for (
+        const candidate of
+        settlementCandidates
+      ) {
+        if (
+          !candidate.completed ||
+          patternAwards[
+            candidate.category ===
+            'dupla'
+              ? 'linhaDupla'
+              : candidate.category
+          ]
+        ) {
+          continue;
+        }
 
-          setPatternAwards(
-            (current) => ({
-              terno:
-                current.terno ||
-                patterns.terno.completed,
-              quadra:
-                current.quadra ||
-                patterns.quadra.completed,
-              linha:
-                current.linha ||
-                patterns.linha.completed,
-              linhaDupla:
-                current.linhaDupla ||
-                patterns.linhaDupla.completed,
-              bingo:
-                current.bingo ||
-                patterns.bingo.completed,
-            }),
-          );
+        setSettlementQueue(
+          (current) => {
+            const alreadyExists =
+              current.some(
+                (event) =>
+                  event.category ===
+                    candidate.category &&
+                  event.number ===
+                    nextNumber,
+              );
 
-          const settlementCandidates = [
-            {
-              category:
-                'terno' as const,
-              completed:
-                patterns.terno.completed,
-            },
-            {
-              category:
-                'quadra' as const,
-              completed:
-                patterns.quadra.completed,
-            },
-            {
-              category:
-                'linha' as const,
-              completed:
-                patterns.linha.completed,
-            },
-            {
-              category:
-                'dupla' as const,
-              completed:
-                patterns.linhaDupla.completed,
-            },
-            {
-              category:
-                'bingo' as const,
-              completed:
-                patterns.bingo.completed,
-            },
-          ];
-
-          /*
-           * SHADOW MODE:
-           * O sorteio e a interface continuam usando a lógica local.
-           * Em paralelo, enviamos o mesmo evento para o núcleo interno.
-           */
-          uiRoomActions.processBall(
-            uiRoomRoundId,
-            nextNumber,
-            virtualEntryValue,
-            roomAccumulatorBB,
-            {
-              terno:
-                patterns.terno.completed
-                  ? [
-                      {
-                        userId:
-                          'LOCAL-PLAYER',
-                        cardId:
-                          'LOCAL-CARD',
-                      },
-                    ]
-                  : [],
-
-              quadra:
-                patterns.quadra.completed
-                  ? [
-                      {
-                        userId:
-                          'LOCAL-PLAYER',
-                        cardId:
-                          'LOCAL-CARD',
-                      },
-                    ]
-                  : [],
-
-              diagonal:
-                [],
-
-              linha:
-                patterns.linha.completed
-                  ? [
-                      {
-                        userId:
-                          'LOCAL-PLAYER',
-                        cardId:
-                          'LOCAL-CARD',
-                      },
-                    ]
-                  : [],
-
-              dupla:
-                patterns.linhaDupla.completed
-                  ? [
-                      {
-                        userId:
-                          'LOCAL-PLAYER',
-                        cardId:
-                          'LOCAL-CARD',
-                      },
-                    ]
-                  : [],
-
-              bingo:
-                patterns.bingo.completed
-                  ? [
-                      {
-                        userId:
-                          'LOCAL-PLAYER',
-                        cardId:
-                          'LOCAL-CARD',
-                      },
-                    ]
-                  : [],
-            },
-          );
-
-          for (
-            const candidate of
-            settlementCandidates
-          ) {
             if (
-              !candidate.completed ||
-              patternAwards[
-                candidate.category ===
-                'dupla'
-                  ? 'linhaDupla'
-                  : candidate.category
-              ]
+              alreadyExists
             ) {
-              continue;
+              return current;
             }
 
-            setSettlementQueue(
-              (current) => {
-                const alreadyExists =
-                  current.some(
-                    (event) =>
-                      event.category ===
-                        candidate.category &&
-                      event.number ===
-                        nextNumber,
-                  );
-
-                if (
-                  alreadyExists
-                ) {
-                  return current;
-                }
-
-                return [
-                  ...current,
-                  {
-                    id:
-                      `${candidate.category}-${nextNumber}-${Date.now()}`,
-                    category:
-                      candidate.category,
-                    status:
-                      'eligible',
-                    number:
-                      nextNumber,
-                  },
-                ];
+            return [
+              ...current,
+              {
+                id:
+                  `${candidate.category}-${nextNumber}-${Date.now()}`,
+                category:
+                  candidate.category,
+                status:
+                  'eligible',
+                number:
+                  nextNumber,
               },
-            );
-          }
+            ];
+          },
+        );
+      }
 
-          setPatternPaid(
-            (current) => ({
-              terno:
-                current.terno ||
-                (
-                  patterns.terno.completed &&
-                  patternAwards.terno
-                ),
-              quadra:
-                current.quadra ||
-                (
-                  patterns.quadra.completed &&
-                  patternAwards.quadra
-                ),
-              linha:
-                current.linha ||
-                (
-                  patterns.linha.completed &&
-                  patternAwards.linha
-                ),
-              linhaDupla:
-                current.linhaDupla ||
-                (
-                  patterns.linhaDupla.completed &&
-                  patternAwards.linhaDupla
-                ),
-              bingo:
-                current.bingo ||
-                (
-                  patterns.bingo.completed &&
-                  patternAwards.bingo
-                ),
-            }),
-          );
-
-          if (
-            patterns.bingo.completed &&
-            !patternAwards.bingo
-          ) {
-            setLatestAchievementMessage(
-              '🏆 BINGO! CARTELA CHEIA!',
-            );
-
-            setLatestAchievementType(
-              'bingo',
-            );
-          } else if (
-            patterns.linhaDupla.completed &&
-            !patternAwards.linhaDupla
-          ) {
-            setLatestAchievementMessage(
-              '🔥 LINHA DUPLA!',
-            );
-
-            setLatestAchievementType(
-              'special',
-            );
-          } else if (
-            patterns.linha.completed &&
-            !patternAwards.linha
-          ) {
-            setLatestAchievementMessage(
-              '🏅 LINHA CONQUISTADA!',
-            );
-
-            setLatestAchievementType(
-              'special',
-            );
-          } else if (
-            patterns.quadra.completed &&
-            !patternAwards.quadra
-          ) {
-            setLatestAchievementMessage(
-              '🥈 QUADRA CONQUISTADA!',
-            );
-
-            setLatestAchievementType(
-              'normal',
-            );
-          } else if (
-            patterns.terno.completed &&
-            !patternAwards.terno
-          ) {
-            setLatestAchievementMessage(
-              '🥉 TERNO CONQUISTADO!',
-            );
-
-            setLatestAchievementType(
-              'normal',
-            );
-          }
-
-          if (
-            patterns.bingo.completed
-          ) {
-            awardVictory(
-              next,
-            );
-          }
-
-          return next;
-        },
+      setPatternPaid(
+        (current) => ({
+          terno:
+            current.terno ||
+            (
+              patterns.terno.completed &&
+              patternAwards.terno
+            ),
+          quadra:
+            current.quadra ||
+            (
+              patterns.quadra.completed &&
+              patternAwards.quadra
+            ),
+          linha:
+            current.linha ||
+            (
+              patterns.linha.completed &&
+              patternAwards.linha
+            ),
+          linhaDupla:
+            current.linhaDupla ||
+            (
+              patterns.linhaDupla.completed &&
+              patternAwards.linhaDupla
+            ),
+          bingo:
+            current.bingo ||
+            (
+              patterns.bingo.completed &&
+              patternAwards.bingo
+            ),
+        }),
       );
+
+      if (
+        patterns.bingo.completed &&
+        !patternAwards.bingo
+      ) {
+        setLatestAchievementMessage(
+          '🏆 BINGO! CARTELA CHEIA!',
+        );
+
+        setLatestAchievementType(
+          'bingo',
+        );
+      } else if (
+        patterns.linhaDupla.completed &&
+        !patternAwards.linhaDupla
+      ) {
+        setLatestAchievementMessage(
+          '🔥 LINHA DUPLA!',
+        );
+
+        setLatestAchievementType(
+          'special',
+        );
+      } else if (
+        patterns.linha.completed &&
+        !patternAwards.linha
+      ) {
+        setLatestAchievementMessage(
+          '🏅 LINHA CONQUISTADA!',
+        );
+
+        setLatestAchievementType(
+          'special',
+        );
+      } else if (
+        patterns.quadra.completed &&
+        !patternAwards.quadra
+      ) {
+        setLatestAchievementMessage(
+          '🥈 QUADRA CONQUISTADA!',
+        );
+
+        setLatestAchievementType(
+          'normal',
+        );
+      } else if (
+        patterns.terno.completed &&
+        !patternAwards.terno
+      ) {
+        setLatestAchievementMessage(
+          '🥉 TERNO CONQUISTADO!',
+        );
+
+        setLatestAchievementType(
+          'normal',
+        );
+      }
+
+      if (
+        patterns.bingo.completed
+      ) {
+        awardVictory(
+          nextMarkedNumbers,
+        );
+      }
     }
   };
 
@@ -1277,6 +1334,11 @@ const hitCardNumber =
   };
 
   const handlePlayAgain = () => {
+    setUiRoundVersion(
+      (current) =>
+        current + 1,
+    );
+
     const nextCard =
       createGeneratedCard();
 
@@ -1956,7 +2018,7 @@ const hitCardNumber =
                 styles.prizePreviewTitle
               }
             >
-              PRÉVIA DINÂMICA DA PREMIAÇÃO
+              PREMIAÇÃO DA RODADA
             </Text>
 
             <Text
@@ -1964,7 +2026,7 @@ const hitCardNumber =
                 styles.prizePreviewLiveNote
               }
             >
-              O painel muda quando cada conquista acontece.
+              Dados da rodada atual • sincronizados com o núcleo.
             </Text>
 
             <View
@@ -1982,7 +2044,7 @@ const hitCardNumber =
                     styles.roundAccountingLabel
                   }
                 >
-                  FUNDO RESERVADO
+                  FUNDO RESERVADO • PRÉVIA
                 </Text>
 
                 <Text
@@ -2004,7 +2066,7 @@ const hitCardNumber =
                     styles.roundAccountingLabel
                   }
                 >
-                  PRÉVIA DISTRIBUÍDA
+                  DISTRIBUÍDO • PRÉVIA
                 </Text>
 
                 <Text
@@ -2026,7 +2088,7 @@ const hitCardNumber =
                     styles.roundAccountingLabel
                   }
                 >
-                  RESÍDUO PREVISTO
+                  RESÍDUO • PRÉVIA
                 </Text>
 
                 <Text
@@ -2087,8 +2149,8 @@ const hitCardNumber =
                   styles.prizePreviewStatus
                 }
               >
-                {dynamicPrizePreview.terno.winners}/5
-                {dynamicPrizePreview.terno.winners > 0 ? ' ✅' : ''}
+                {uiPrizeRow('terno')?.slotsText ?? '0/5'}
+                {uiPrizeRow('terno')?.highlighted ? ' ✅' : ''}
               </Text>
 
               <Text
@@ -2096,7 +2158,7 @@ const hitCardNumber =
                   styles.prizePreviewValue
                 }
               >
-                {dynamicPrizePreview.terno.remaining}
+                {uiPrizeRow('terno')?.remainingText ?? '0'}
               </Text>
             </View>
 
@@ -2110,8 +2172,9 @@ const hitCardNumber =
                   styles.prizePreviewSubText
                 }
               >
-                {dynamicPrizePreview.terno.paid > 0
-                  ? `conquista paga: ${dynamicPrizePreview.terno.paid}`
+                {uiPrizeRow('terno')?.paidText &&
+                uiPrizeRow('terno')?.paidText !== '0'
+                  ? `pago: ${uiPrizeRow('terno')?.paidText}`
                   : `fundo: ${categoryPrizePools.terno}`}
               </Text>
             </View>
@@ -2134,8 +2197,8 @@ const hitCardNumber =
                   styles.prizePreviewStatus
                 }
               >
-                {dynamicPrizePreview.quadra.winners}/3
-                {dynamicPrizePreview.quadra.winners > 0 ? ' ✅' : ''}
+                {uiPrizeRow('quadra')?.slotsText ?? '0/3'}
+                {uiPrizeRow('quadra')?.highlighted ? ' ✅' : ''}
               </Text>
 
               <Text
@@ -2143,7 +2206,7 @@ const hitCardNumber =
                   styles.prizePreviewValue
                 }
               >
-                {dynamicPrizePreview.quadra.remaining}
+                {uiPrizeRow('quadra')?.remainingText ?? '0'}
               </Text>
             </View>
 
@@ -2157,8 +2220,9 @@ const hitCardNumber =
                   styles.prizePreviewSubText
                 }
               >
-                {dynamicPrizePreview.quadra.paid > 0
-                  ? `conquista paga: ${dynamicPrizePreview.quadra.paid}`
+                {uiPrizeRow('quadra')?.paidText &&
+                uiPrizeRow('quadra')?.paidText !== '0'
+                  ? `pago: ${uiPrizeRow('quadra')?.paidText}`
                   : `fundo: ${categoryPrizePools.quadra}`}
               </Text>
             </View>
@@ -2181,8 +2245,8 @@ const hitCardNumber =
                   styles.prizePreviewStatus
                 }
               >
-                {dynamicPrizePreview.linha.winners}/3
-                {dynamicPrizePreview.linha.winners > 0 ? ' ✅' : ''}
+                {uiPrizeRow('linha')?.slotsText ?? '0/3'}
+                {uiPrizeRow('linha')?.highlighted ? ' ✅' : ''}
               </Text>
 
               <Text
@@ -2190,7 +2254,7 @@ const hitCardNumber =
                   styles.prizePreviewValue
                 }
               >
-                {dynamicPrizePreview.linha.remaining}
+                {uiPrizeRow('linha')?.remainingText ?? '0'}
               </Text>
             </View>
 
@@ -2211,8 +2275,9 @@ const hitCardNumber =
                   ? 'linha diagonal'
                   : 'linha horizontal ou válida'}
                 {' • '}
-                {dynamicPrizePreview.linha.paid > 0
-                  ? `conquista paga: ${dynamicPrizePreview.linha.paid}`
+                {uiPrizeRow('linha')?.paidText &&
+                uiPrizeRow('linha')?.paidText !== '0'
+                  ? `pago: ${uiPrizeRow('linha')?.paidText}`
                   : `fundo: ${categoryPrizePools.linha}`}
               </Text>
             </View>
@@ -2235,8 +2300,8 @@ const hitCardNumber =
                   styles.prizePreviewStatus
                 }
               >
-                {dynamicPrizePreview.dupla.winners}/3
-                {dynamicPrizePreview.dupla.winners > 0 ? ' ✅' : ''}
+                {uiPrizeRow('dupla')?.slotsText ?? '0/3'}
+                {uiPrizeRow('dupla')?.highlighted ? ' ✅' : ''}
               </Text>
 
               <Text
@@ -2244,7 +2309,7 @@ const hitCardNumber =
                   styles.prizePreviewValue
                 }
               >
-                {dynamicPrizePreview.dupla.remaining}
+                {uiPrizeRow('dupla')?.remainingText ?? '0'}
               </Text>
             </View>
 
@@ -2258,8 +2323,9 @@ const hitCardNumber =
                   styles.prizePreviewSubText
                 }
               >
-                {dynamicPrizePreview.dupla.paid > 0
-                  ? `conquista paga: ${dynamicPrizePreview.dupla.paid}`
+                {uiPrizeRow('dupla')?.paidText &&
+                uiPrizeRow('dupla')?.paidText !== '0'
+                  ? `pago: ${uiPrizeRow('dupla')?.paidText}`
                   : `fundo: ${categoryPrizePools.dupla}`}
               </Text>
             </View>
@@ -2282,9 +2348,7 @@ const hitCardNumber =
                   styles.prizePreviewStatusBingo
                 }
               >
-                {dynamicPrizePreview.bingo.winners > 0
-                  ? `${dynamicPrizePreview.bingo.winners} vencedor(es)`
-                  : 'nenhum vencedor'}
+                {uiPrizeRow('bingo')?.slotsText ?? '0'}
               </Text>
 
               <Text
@@ -2292,7 +2356,7 @@ const hitCardNumber =
                   styles.prizePreviewValueBingo
                 }
               >
-                {dynamicPrizePreview.bingo.remaining}
+                {uiPrizeRow('bingo')?.remainingText ?? '0'}
               </Text>
             </View>
 
@@ -2306,8 +2370,9 @@ const hitCardNumber =
                   styles.prizePreviewSubText
                 }
               >
-                {dynamicPrizePreview.bingo.paid > 0
-                  ? `conquista local: ${dynamicPrizePreview.bingo.paid}`
+                {uiPrizeRow('bingo')?.paidText &&
+                uiPrizeRow('bingo')?.paidText !== '0'
+                  ? `pago: ${uiPrizeRow('bingo')?.paidText}`
                   : `fundo: ${categoryPrizePools.bingo}`}
               </Text>
             </View>
@@ -2383,15 +2448,28 @@ const hitCardNumber =
                 styles.prizePreviewLiveNote
               }
             >
-              Vagas ocupadas nesta cartela:
+              VAGAS REAIS DA RODADA:
               {' '}
-              T {dynamicPrizePreview.terno.winners}/5
+              T {uiPrizeRow('terno')?.slotsText ?? '0/5'}
               {' • '}
-              Q {dynamicPrizePreview.quadra.winners}/3
+              Q {uiPrizeRow('quadra')?.slotsText ?? '0/3'}
               {' • '}
-              L {dynamicPrizePreview.linha.winners}/3
+              L {uiPrizeRow('linha')?.slotsText ?? '0/3'}
               {' • '}
-              D {dynamicPrizePreview.dupla.winners}/3
+              D {uiPrizeRow('dupla')?.slotsText ?? '0/3'}
+            </Text>
+            <Text
+              style={
+                styles.prizePreviewLiveNote
+              }
+            >
+              DIAGONAL:
+              {' '}
+              {uiPrizeRow('diagonal')?.slotsText ?? '0/3'}
+              {' • '}
+              BINGO:
+              {' '}
+              {uiPrizeRow('bingo')?.slotsText ?? '0'}
             </Text>
 
             <View

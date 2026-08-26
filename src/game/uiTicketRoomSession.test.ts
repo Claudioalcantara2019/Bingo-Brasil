@@ -15,8 +15,8 @@ import {
 } from './walletLedger';
 
 import {
-  createUiTicketGameActions,
-} from './uiTicketGameActions';
+  createUiTicketRoomSession,
+} from './uiTicketRoomSession';
 
 function assert(
   condition: boolean,
@@ -32,43 +32,37 @@ clearRoundStateTestStore();
 clearSettlementTestStore();
 clearWalletLedgerTestStore();
 
-const actions =
-  createUiTicketGameActions(
-    'UI-TICKET-ACTIONS-ROOM',
+const session =
+  createUiTicketRoomSession(
+    'UI-TICKET-SESSION',
     3,
   );
 
-const created =
-  actions.createRoom(3);
-
-assert(
-  created.ok,
-  'Ações UI não criaram a sala',
-);
-
-actions.joinPlayer(
+session.joinPlayer(
   'A',
   ['A1', 'A2'],
 );
 
-actions.joinPlayer(
+session.joinPlayer(
   'B',
   ['B1', 'B2', 'B3'],
 );
 
 const started =
-  actions.startRound(
-    'UI-TICKET-ACTIONS-ROUND',
+  session.startRound(
+    'UI-TICKET-SESSION-ROUND',
   );
 
 assert(
-  started.ok,
-  'Ações UI não iniciaram a rodada',
+  started.ok &&
+    session.state.roundId ===
+      'UI-TICKET-SESSION-ROUND',
+  'Sessão não iniciou a rodada',
 );
 
 const result =
-  actions.processBallFromTickets(
-    'UI-TICKET-ACTIONS-ROUND',
+  session.processBallFromTickets(
+    'UI-TICKET-SESSION-ROUND',
     57,
     25,
     0,
@@ -84,7 +78,7 @@ const result =
 
 assert(
   result.ok,
-  'Ações UI não processaram a bola',
+  'Fluxo real por cartelas deveria funcionar',
 );
 
 assert(
@@ -94,35 +88,23 @@ assert(
       125 &&
     result.prizePool ===
       81,
-  'Ações UI receberam economia incorreta',
-);
-
-const terno =
-  result.state.prizes.find(
-    (prize) =>
-      prize.key ===
-      'terno',
-  );
-
-const dupla =
-  result.state.prizes.find(
-    (prize) =>
-      prize.key ===
-      'dupla',
-  );
-
-assert(
-  terno?.slotsText ===
-    '0/5',
-  'UI deveria iniciar Terno em 0/5',
+  'Economia por cartelas não chegou à sessão UI',
 );
 
 assert(
-  dupla?.slotsText ===
-    '0/3',
-  'UI deveria iniciar Linha Dupla em 0/3',
+  session.state.roomId ===
+      'UI-TICKET-SESSION' &&
+    session.state.roundId ===
+      'UI-TICKET-SESSION-ROUND',
+  'Sessão perdeu a identidade da rodada',
+);
+
+assert(
+  session.state.header.players ===
+    '2 jogadores',
+  'Sessão perdeu quantidade de jogadores',
 );
 
 console.log(
-  'uiTicketGameActions tests: OK',
+  'uiTicketRoomSession integration tests: OK',
 );

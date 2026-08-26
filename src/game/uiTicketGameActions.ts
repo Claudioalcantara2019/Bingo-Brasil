@@ -3,56 +3,40 @@ import type {
 } from './roundEngine';
 
 import {
-  processRoomGameEventFromTickets,
-} from './roomGameTicketGate';
+  createUiTicketRoomSession,
+  type UiTicketRoomSession,
+} from './uiTicketRoomSession';
 
-import {
-  createUiRoomSession,
-  type UiRoomSession,
-} from './uiRoomSession';
-
-import {
-  buildUiRoomPresentation,
-  type UiRoomPresentation,
+import type {
+  UiRoomPresentation,
 } from './uiRoomPresentation';
 
-export type UiTicketGameActionResult = {
+export type UiTicketActionResult = {
   ok: boolean;
   state: UiRoomPresentation;
   reason: string;
 
-  ticketCount: number;
-  grossGold: number;
-  prizePool: number;
+  ticketCount?: number;
+  grossGold?: number;
+  prizePool?: number;
 };
 
 export type UiTicketGameActions = {
-  session: UiRoomSession;
+  session:
+    UiTicketRoomSession;
 
   createRoom: (
     maxPlayers?: number,
-  ) => {
-    ok: boolean;
-    state: UiRoomPresentation;
-    reason: string;
-  };
+  ) => UiTicketActionResult;
 
   joinPlayer: (
     userId: string,
     cardIds: string[],
-  ) => {
-    ok: boolean;
-    state: UiRoomPresentation;
-    reason: string;
-  };
+  ) => UiTicketActionResult;
 
   startRound: (
     roundId: string,
-  ) => {
-    ok: boolean;
-    state: UiRoomPresentation;
-    reason: string;
-  };
+  ) => UiTicketActionResult;
 
   processBallFromTickets: (
     roundId: string,
@@ -60,38 +44,55 @@ export type UiTicketGameActions = {
     ticketValue: number,
     accumulatedBB: number,
     candidates: RoundPatternCandidates,
-  ) => UiTicketGameActionResult;
+  ) => UiTicketActionResult;
 
-  closeRoom: () => {
-    ok: boolean;
-    state: UiRoomPresentation;
-    reason: string;
-  };
+  closeRoom: () =>
+    UiTicketActionResult;
 
   read: () =>
     UiRoomPresentation;
 };
 
-function presentation(
-  session: UiRoomSession,
-) {
-  return buildUiRoomPresentation(
-    session,
-  );
+function toActionResult(
+  session:
+    UiTicketRoomSession,
+  result: {
+    ok: boolean;
+    state: unknown;
+    reason: string;
+    ticketCount?: number;
+    grossGold?: number;
+    prizePool?: number;
+  },
+): UiTicketActionResult {
+  return {
+    ok:
+      result.ok,
+    state:
+      session.state,
+    reason:
+      result.reason,
+    ticketCount:
+      result.ticketCount,
+    grossGold:
+      result.grossGold,
+    prizePool:
+      result.prizePool,
+  };
 }
 
 /**
- * UI facade for the real ticket-driven economy path.
+ * Single UI facade for the ticket-driven round.
  *
- * The screen provides the ticket value, while the room itself
- * supplies the number of registered cards.
+ * The future screen should call this facade and should not import
+ * room, economy, settlement or round engines directly.
  */
 export function createUiTicketGameActions(
   roomId: string,
   maxPlayers = 100,
 ): UiTicketGameActions {
   const session =
-    createUiRoomSession(
+    createUiTicketRoomSession(
       roomId,
       maxPlayers,
     );
@@ -102,57 +103,36 @@ export function createUiTicketGameActions(
     createRoom(
       nextMaxPlayers = maxPlayers,
     ) {
-      const result =
+      return toActionResult(
+        session,
         session.createRoom(
           nextMaxPlayers,
-        );
-
-      return {
-        ok:
-          result.ok,
-        state:
-          presentation(session),
-        reason:
-          result.reason,
-      };
+        ),
+      );
     },
 
     joinPlayer(
       userId: string,
       cardIds: string[],
     ) {
-      const result =
+      return toActionResult(
+        session,
         session.joinPlayer(
           userId,
           cardIds,
-        );
-
-      return {
-        ok:
-          result.ok,
-        state:
-          presentation(session),
-        reason:
-          result.reason,
-      };
+        ),
+      );
     },
 
     startRound(
       roundId: string,
     ) {
-      const result =
+      return toActionResult(
+        session,
         session.startRound(
           roundId,
-        );
-
-      return {
-        ok:
-          result.ok,
-        state:
-          presentation(session),
-        reason:
-          result.reason,
-      };
+        ),
+      );
     },
 
     processBallFromTickets(
@@ -162,61 +142,27 @@ export function createUiTicketGameActions(
       accumulatedBB: number,
       candidates: RoundPatternCandidates,
     ) {
-      const result =
-        processRoomGameEventFromTickets({
-          roomId:
-            roomId,
-          roundId:
-            roundId,
-          triggerNumber:
-            triggerNumber,
-          ticketValue:
-            ticketValue,
-          accumulatedBB:
-            accumulatedBB,
-          candidates:
-            candidates,
-        });
-
-      return {
-        ok:
-          result.roomResult.ok,
-
-        state:
-          presentation(session),
-
-        reason:
-          result.roomResult.reason,
-
-        ticketCount:
-          result.ticketCount,
-
-        grossGold:
-          result.grossGold,
-
-        prizePool:
-          result.prizePool,
-      };
+      return toActionResult(
+        session,
+        session.processBallFromTickets(
+          roundId,
+          triggerNumber,
+          ticketValue,
+          accumulatedBB,
+          candidates,
+        ),
+      );
     },
 
     closeRoom() {
-      const result =
-        session.closeRoom();
-
-      return {
-        ok:
-          result.ok,
-        state:
-          presentation(session),
-        reason:
-          result.reason,
-      };
+      return toActionResult(
+        session,
+        session.closeRoom(),
+      );
     },
 
     read() {
-      return presentation(
-        session,
-      );
+      return session.state;
     },
   };
 }

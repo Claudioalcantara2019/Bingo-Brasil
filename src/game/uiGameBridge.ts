@@ -2,6 +2,10 @@ import type {
   RoomGameEventResult,
 } from './roomGameEngine';
 
+import {
+  getRoundCategoryWinnerCount,
+} from './roundWinnerRegistry';
+
 export type UiPrizeRow = {
   key:
     | 'terno'
@@ -150,11 +154,14 @@ export function buildUiRoundSummary(
     };
   }
 
+  const flow =
+    result.flow;
+
   const categories =
-    result.flow.round.categories;
+    flow.round.categories;
 
   const settlements =
-    result.flow.round.settlements;
+    flow.round.settlements;
 
   const getPrize = (
     key: UiPrizeRow['key'],
@@ -173,9 +180,20 @@ export function buildUiRoundSummary(
           key,
       );
 
+    /*
+     * The last RoomGameEventResult contains only the winners
+     * confirmed on the CURRENT ball. The UI table, however,
+     * represents the WHOLE ROUND.
+     *
+     * Therefore the authoritative winner count comes from the
+     * round winner registry, which accumulates Terno/Quadra/Linha/
+     * Dupla/Diagonal/Bingo winners across balls.
+     */
     const winners =
-      category?.winners.length ??
-      0;
+      getRoundCategoryWinnerCount(
+        flow.round.roundId,
+        key,
+      );
 
     const paid =
       settlement?.payouts.reduce(
@@ -228,10 +246,10 @@ export function buildUiRoundSummary(
     finished:
       result.flow.finished,
     totalGoldPaid:
-      result.flow.payout
+      flow.payout
         .totalGoldCredited,
     totalBBPaid:
-      result.flow.payout
+      flow.payout
         .totalBBCredited,
     prizes: [
       getPrize('terno'),

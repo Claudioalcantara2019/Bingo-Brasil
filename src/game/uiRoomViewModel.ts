@@ -2,6 +2,10 @@ import type {
   UiRoomState,
 } from './uiRoomController';
 
+import {
+  buildUiPrizeSlotState,
+} from './uiPrizeSlots';
+
 export type UiPrizeViewRow = {
   key:
     | 'terno'
@@ -14,6 +18,7 @@ export type UiPrizeViewRow = {
   label: string;
   statusText: string;
   winnersText: string;
+  slotsText: string;
   paidText: string;
   remainingText: string;
   highlighted: boolean;
@@ -194,37 +199,48 @@ export function buildUiRoomViewModel(
 
     prizes:
       state.view.prizes.map(
-        (prize) => ({
-          key:
-            prize.key,
-
-          label:
-            prize.label,
-
-          statusText:
-            prizeStatusText(
-              prize.status,
-            ),
-
-          winnersText:
-            winnerText(
+        (prize) => {
+          const slots =
+            buildUiPrizeSlotState(
+              prize.key,
               prize.winners,
-            ),
+            );
 
-          paidText:
-            formatInteger(
-              prize.paid,
-            ),
+          return {
+            key:
+              prize.key,
 
-          remainingText:
-            formatInteger(
-              prize.remaining,
-            ),
+            label:
+              prize.label,
 
-          highlighted:
-            prize.status ===
-            'paid',
-        }),
+            statusText:
+              prizeStatusText(
+                prize.status,
+              ),
+
+            winnersText:
+              winnerText(
+                prize.winners,
+              ),
+
+            slotsText:
+              slots.text,
+
+            paidText:
+              formatInteger(
+                prize.paid,
+              ),
+
+            remainingText:
+              formatInteger(
+                prize.remaining,
+              ),
+
+            highlighted:
+              prize.status ===
+              'paid',
+          };
+        },
       ),
   };
 }

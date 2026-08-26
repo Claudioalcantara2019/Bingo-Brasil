@@ -198,12 +198,40 @@ assert(
       'Pago' &&
     bingo?.winnersText ===
       '3 vencedores' &&
+    bingo?.slotsText ===
+      '3' &&
     bingo?.paidText ===
       '227' &&
     bingo?.remainingText ===
       '0' &&
     bingo?.highlighted,
   'Linha de Bingo incorreta',
+);
+
+const terno =
+  view.prizes.find(
+    (row) =>
+      row.key ===
+      'terno',
+  );
+
+assert(
+  terno?.slotsText ===
+    '1/5',
+  'Terno deveria mostrar 1/5 vagas ocupadas',
+);
+
+const linha =
+  view.prizes.find(
+    (row) =>
+      row.key ===
+      'linha',
+  );
+
+assert(
+  linha?.slotsText ===
+    '0/3',
+  'Linha deveria iniciar em 0/3',
 );
 
 assert(
